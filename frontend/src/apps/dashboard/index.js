@@ -1,73 +1,68 @@
-let root = null;
+let mountedContainer = null;
 
-export async function mount(container, context) {
-  root = container;
-  const profile = context.profile;
+export async function mount(container) {
+  mountedContainer = container;
 
   container.innerHTML = `
-    <section class="grid gap-4 lg:grid-cols-3">
-      <article class="app-card lg:col-span-2">
-        <p class="text-sm font-semibold text-blue-600">Dashboard</p>
-        <h2 class="mt-2 text-2xl font-bold text-slate-900">Portal Core V3</h2>
-        <p class="mt-3 text-sm leading-6 text-slate-600">
-          Portal sekarang memakai SPA Router. Perpindahan ke App A tidak
-          memuat ulang halaman dan tidak memvalidasi sesi ulang.
+    <section class="space-y-4">
+      <article class="app-card">
+        <p class="text-sm font-semibold text-blue-600">
+          Dashboard
         </p>
-        <div class="mt-6 flex flex-wrap gap-3">
-          ${context.can('appA.access') ? `
-            <button type="button" data-open-app-a class="app-button-primary">
-              Buka App A
-            </button>
-          ` : ''}
-          <button type="button" data-open-diagnostics class="app-button-secondary">
-            Buka Core Test
-          </button>
-        </div>
+
+        <h2 class="mt-1 text-2xl font-bold text-slate-900">
+          Portal AZKO Kudus
+        </h2>
+
+        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+          Portal Core V3 aktif. Aplikasi dimuat sebagai modul tanpa
+          memuat ulang seluruh halaman.
+        </p>
       </article>
 
-      <aside class="app-card">
-        <h3 class="text-sm font-bold text-slate-900">Access information</h3>
-        <dl class="mt-4 space-y-3 text-sm">
-          <div class="flex justify-between gap-4">
-            <dt class="text-slate-500">Portal role</dt>
-            <dd class="font-semibold">${profile.access.portalRole || 'NONE'}</dd>
-          </div>
-          <div class="flex justify-between gap-4">
-            <dt class="text-slate-500">App A role</dt>
-            <dd class="font-semibold">${profile.access.appRoles?.appA || 'NONE'}</dd>
-          </div>
-          <div class="flex justify-between gap-4">
-            <dt class="text-slate-500">Current route</dt>
-            <dd class="font-semibold">dashboard</dd>
-          </div>
-        </dl>
-      </aside>
-    </section>
+      <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <article class="app-card">
+          <p class="text-sm text-slate-500">
+            Frontend
+          </p>
 
-    <section class="mt-4 app-card">
-      <h3 class="text-lg font-bold text-slate-900">Permissions</h3>
-      <div class="mt-4 flex flex-wrap gap-2">
-        ${(profile.access.permissions || []).map((permission) => `
-          <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-            ${permission}
-          </span>
-        `).join('')}
-      </div>
+          <p class="mt-1 font-bold text-slate-900">
+            Vite + Tailwind CSS
+          </p>
+        </article>
+
+        <article class="app-card">
+          <p class="text-sm text-slate-500">
+            Navigation
+          </p>
+
+          <p class="mt-1 font-bold text-slate-900">
+            SPA Router
+          </p>
+        </article>
+
+        <article class="app-card">
+          <p class="text-sm text-slate-500">
+            App loading
+          </p>
+
+          <p class="mt-1 font-bold text-slate-900">
+            Lazy module
+          </p>
+        </article>
+      </section>
     </section>
   `;
-
-  container.querySelector('[data-open-app-a]')?.addEventListener('click', () => {
-    context.navigate('appA');
-  });
-
-  container.querySelector('[data-open-diagnostics]')?.addEventListener('click', () => {
-    context.openDiagnostics();
-  });
 }
 
-export async function refresh() {}
+export async function refresh() {
+  // Dashboard belum mempunyai data dinamis.
+}
 
 export async function unmount() {
-  if (root) root.innerHTML = '';
-  root = null;
+  if (mountedContainer) {
+    mountedContainer.innerHTML = '';
+  }
+
+  mountedContainer = null;
 }
