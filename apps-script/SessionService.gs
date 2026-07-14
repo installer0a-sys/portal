@@ -1,10 +1,16 @@
 function getSessionTtlMinutes_() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get('portal:session-ttl:v1');
+  if (cached) return Number(cached) || 480;
+
   const sheet = getPortalSpreadsheet_().getSheetByName('CONFIG');
   if (!sheet || sheet.getLastRow() < 2) return 480;
   const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, Math.max(2, sheet.getLastColumn())).getValues();
   for (let i = 0; i < values.length; i += 1) {
     if (String(values[i][0]) === 'SESSION_TTL_MINUTES') {
-      return Math.max(15, Number(values[i][1]) || 480);
+      const ttl = Math.max(15, Number(values[i][1]) || 480);
+      cache.put('portal:session-ttl:v1', String(ttl), 300);
+      return ttl;
     }
   }
   return 480;
@@ -95,17 +101,11 @@ function validateSession_(rawToken) {
     throw revoked;
   }
 
-  touchSession_(sheet, headers, found.rowNumber);
   return {
     session: found.data,
     user: userRecord.data,
     access: getUserAccess_(userRecord.data)
   };
-}
-
-function touchSession_(sheet, headers, rowNumber) {
-  const index = headers.indexOf('LAST_SEEN_AT');
-  if (index >= 0) sheet.getRange(rowNumber, index + 1).setValue(new Date());
 }
 
 function updateSessionStatus_(rowNumber, status) {
@@ -115,18 +115,30 @@ function updateSessionStatus_(rowNumber, status) {
   if (index >= 0) sheet.getRange(rowNumber, index + 1).setValue(status);
 }
 
-function revokeSession_(rawToken) {
+function revokeSessionFast_(rawToken) {
+  if (!rawToken) return { revoked: false, userId: '' };
+
   const tokenHash = hashSessionToken_(rawToken);
   const sheet = getPortalSpreadsheet_().getSheetByName('SESSIONS');
-  if (!sheet || sheet.getLastRow() < 2) return;
+  if (!sheet || sheet.getLastRow() < 2) return { revoked: false, userId: '' };
+
   const headers = getSheetHeaders_(sheet);
   const hashIndex = headers.indexOf('TOKEN_HASH');
   const statusIndex = headers.indexOf('STATUS');
+  const userIdIndex = headers.indexOf('USER_ID');
   const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
+
   for (let i = values.length - 1; i >= 0; i -= 1) {
     if (constantTimeEquals_(String(values[i][hashIndex] || ''), tokenHash)) {
-      sheet.getRange(i + 2, statusIndex + 1).setValue('LOGGED_OUT');
-      return;
+      if (statusIndex >= 0 && String(values[i][statusIndex]) === 'ACTIVE') {
+        sheet.getRange(i + 2, statusIndex + 1).setValue('LOGGED_OUT');
+      }
+      return {
+        revoked: true,
+        userId: userIdIndex >= 0 ? String(values[i][userIdIndex] || '') : ''
+      };
     }
   }
+
+  return { revoked: false, userId: '' };
 }

@@ -31,7 +31,7 @@ async function execute(action, payload = {}, options = {}) {
         requestId,
         action,
         payload,
-        sessionToken: options.anonymous ? '' : sessionStore.getToken()
+        sessionToken: options.anonymous ? '' : (options.sessionTokenOverride || sessionStore.getToken())
       }),
       signal: controller.signal,
       redirect: 'follow'

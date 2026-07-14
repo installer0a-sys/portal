@@ -1,4 +1,5 @@
-const AUTH_HASH_ROUNDS = 12000;
+const AUTH_HASH_ROUNDS = 1500;
+const AUTH_HASH_VERSION = 'v2';
 const AUTH_PEPPER_PROPERTY = 'PORTAL_AUTH_PEPPER';
 
 function ensureAuthPepper_() {
@@ -28,7 +29,28 @@ function hashPassword_(password, salt) {
     value = bytesToHex_(bytes) + '|' + salt + '|' + pepper;
   }
 
-  return value.split('|')[0];
+  return AUTH_HASH_VERSION + '$' + value.split('|')[0];
+}
+
+function verifyPassword_(password, salt, storedHash) {
+  const stored = String(storedHash || '');
+
+  if (stored.indexOf(AUTH_HASH_VERSION + '$') === 0) {
+    return constantTimeEquals_(hashPassword_(password, salt), stored);
+  }
+
+  // Kompatibilitas akun v0.2.0 yang masih memakai 12.000 putaran.
+  const pepper = ensureAuthPepper_();
+  let value = String(password || '') + '|' + String(salt || '') + '|' + pepper;
+  for (let i = 0; i < 12000; i += 1) {
+    const bytes = Utilities.computeDigest(
+      Utilities.DigestAlgorithm.SHA_256,
+      value,
+      Utilities.Charset.UTF_8
+    );
+    value = bytesToHex_(bytes) + '|' + salt + '|' + pepper;
+  }
+  return constantTimeEquals_(value.split('|')[0], stored);
 }
 
 function hashSessionToken_(token) {

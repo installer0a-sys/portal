@@ -11,12 +11,33 @@ function applyProfile(profile) {
   return profile;
 }
 
+function sendLogoutInBackground(token) {
+  if (!token) return;
+
+  const requestId = typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `logout_${Date.now()}`;
+
+  fetch(window.PORTAL_API_URL || '', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({
+      requestId,
+      action: 'auth.logout',
+      payload: {},
+      sessionToken: token
+    }),
+    redirect: 'follow',
+    keepalive: true
+  }).catch(() => {});
+}
+
 export const auth = {
   async login(username, password) {
     const result = await callApi('auth.login', { username, password }, {
       anonymous: true,
       deduplicate: false,
-      timeoutMs: 45000
+      timeoutMs: 30000
     });
     const profile = {
       user: result.data.user,
@@ -42,13 +63,22 @@ export const auth = {
   },
 
   async logout() {
-    try {
-      if (sessionStore.getToken()) {
-        await callApi('auth.logout', {}, { deduplicate: false, timeoutMs: 15000 });
+    const token = sessionStore.getToken();
+
+    // UI dan permission dibersihkan langsung agar logout terasa instan.
+    sessionStore.clearRuntimeSession();
+    applyProfile(null);
+
+    if (token) {
+      try {
+        await callApi('auth.logout', {}, {
+          deduplicate: false,
+          timeoutMs: 8000,
+          sessionTokenOverride: token
+        });
+      } catch (error) {
+        // User tetap dianggap logout di perangkat ini.
       }
-    } finally {
-      sessionStore.clearRuntimeSession();
-      applyProfile(null);
     }
   },
 

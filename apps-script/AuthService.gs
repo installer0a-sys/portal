@@ -14,10 +14,20 @@ function login_(payload, requestId) {
       throw new Error(genericError);
     }
 
-    const calculatedHash = hashPassword_(password, userRecord.data.PASSWORD_SALT);
-    if (!constantTimeEquals_(calculatedHash, userRecord.data.PASSWORD_HASH)) {
+    if (!verifyPassword_(password, userRecord.data.PASSWORD_SALT, userRecord.data.PASSWORD_HASH)) {
       recordLoginFailure_(username);
       throw new Error(genericError);
+    }
+
+    // Upgrade otomatis hash lama setelah login pertama berhasil.
+    if (String(userRecord.data.PASSWORD_HASH || '').indexOf(AUTH_HASH_VERSION + '$') !== 0) {
+      const headers = getSheetHeaders_(userRecord.sheet || getPortalSpreadsheet_().getSheetByName('USERS'));
+      const hashIndex = headers.indexOf('PASSWORD_HASH');
+      if (hashIndex >= 0) {
+        getPortalSpreadsheet_().getSheetByName('USERS')
+          .getRange(userRecord.rowNumber, hashIndex + 1)
+          .setValue(hashPassword_(password, userRecord.data.PASSWORD_SALT));
+      }
     }
 
     clearLoginFailures_(username);
@@ -60,17 +70,10 @@ function getSessionProfile_(sessionToken) {
 }
 
 function logout_(sessionToken, requestId) {
-  let userId = '';
-  try {
-    const context = validateSession_(sessionToken);
-    userId = context.user.USER_ID;
-  } catch (error) {
-    // Logout tetap idempotent walaupun sesi sudah tidak valid.
-  }
-  revokeSession_(sessionToken);
+  const result = revokeSessionFast_(sessionToken);
   writeAuditLog_({
     requestId: requestId,
-    userId: userId,
+    userId: result.userId || '',
     action: 'auth.logout',
     status: 'SUCCESS'
   });
