@@ -13,3 +13,6 @@ frontend/dist/
 
 portal-core-patch.zip
 backup-before-core-patch/
+
+portal-auth-patch-v0.2.0.zip
+backup-before-auth-v0.2.0/
