@@ -3,6 +3,13 @@ import { logger } from './logger.js';
 import {
   lifecycleManager
 } from './lifecycle.js';
+import {
+  queueManager
+} from './queue.js';
+import {
+  loadingManager
+} from './loading.js';
+import { toast } from './toast.js';
 
 const startedAt = performance.now();
 
@@ -44,6 +51,12 @@ export const diagnostics = {
           : null,
       lifecycle:
         lifecycleManager.snapshot(),
+      queue:
+        queueManager.snapshot(),
+      loading:
+        loadingManager.snapshot(),
+      toast:
+        toast.snapshot(),
       logs:
         logger.getLogs()
     };

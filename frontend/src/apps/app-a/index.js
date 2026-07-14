@@ -1,15 +1,15 @@
 import { callApi } from '../../core/api.js';
-import { toast } from '../../core/toast.js';
+import {
+  queueManager
+} from '../../core/queue.js';
 
 let mountedContainer = null;
-let activeContext = null;
 
 export async function mount(
   container,
   context = {}
 ) {
   mountedContainer = container;
-  activeContext = context;
 
   container.innerHTML = `
     <section class="space-y-4">
@@ -25,8 +25,7 @@ export async function mount(
             </h2>
 
             <p class="mt-2 text-sm text-slate-600">
-              Modul App A sekarang memakai Lifecycle Manager
-              untuk listener dan cleanup otomatis.
+              Queue Manager mencegah request dan notifikasi ganda.
             </p>
           </div>
 
@@ -71,23 +70,54 @@ export async function mount(
     </section>
   `;
 
+  const testButton =
+    container.querySelector(
+      '[data-app-a-test]'
+    );
+
   const output =
     container.querySelector(
       '[data-app-a-result]'
     );
 
   context.lifecycle?.listen(
-    container.querySelector(
-      '[data-app-a-test]'
-    ),
+    testButton,
     'click',
     async () => {
+      if (
+        queueManager.isRunning(
+          'appA.ping'
+        )
+      ) {
+        return;
+      }
+
+      testButton.disabled = true;
+      testButton.textContent =
+        'Menghubungkan...';
+
       output.textContent =
         'Menghubungi App A...';
 
       try {
         const result =
-          await callApi('appA.ping');
+          await queueManager.run({
+            id: 'appA.ping',
+            label: 'Tes koneksi App A',
+            mode: 'drop',
+            successMessage:
+              'App A terhubung.',
+            errorMessage:
+              'App A gagal terhubung.',
+            task: () =>
+              callApi(
+                'appA.ping',
+                {},
+                {
+                  deduplicate: true
+                }
+              )
+          });
 
         output.textContent =
           JSON.stringify(
@@ -95,15 +125,13 @@ export async function mount(
             null,
             2
           );
-
-        toast.success(
-          'App A terhubung.'
-        );
       } catch (error) {
         output.textContent =
           `ERROR: ${error.message}`;
-
-        toast.error(error.message);
+      } finally {
+        testButton.disabled = false;
+        testButton.textContent =
+          'Tes API App A';
       }
     }
   );
@@ -129,22 +157,15 @@ export async function mount(
   }
 
   context.lifecycle?.addCleanup(() => {
-    activeContext = null;
     mountedContainer = null;
   });
 }
 
-export async function refresh() {
-  // Nantinya refresh data App A dilakukan di sini.
-}
+export async function refresh() {}
 
-export async function pause() {
-  // Timer atau stream App A dihentikan di sini.
-}
+export async function pause() {}
 
-export async function resume() {
-  // Timer atau stream App A dilanjutkan di sini.
-}
+export async function resume() {}
 
 export async function unmount() {
   if (mountedContainer) {
@@ -152,5 +173,4 @@ export async function unmount() {
   }
 
   mountedContainer = null;
-  activeContext = null;
 }
