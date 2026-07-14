@@ -1,35 +1,91 @@
 import '../styles/app.css';
 
 import { CONFIG } from '../core/config.js';
-import { callApi } from '../core/api.js';
 import { registerPwa } from '../core/pwa.js';
 import { router } from '../core/router.js';
-import { restoreSession, logout } from '../auth/auth.js';
+import {
+  restoreSession,
+  logout
+} from '../auth/auth.js';
 import { renderLoginView } from '../auth/login-view.js';
 import { toast } from '../core/toast.js';
 import { store } from '../core/store.js';
+import { logger } from '../core/logger.js';
 
 const root = document.querySelector('#app');
 
 let activeSession = null;
 let pwaRegistration = null;
+let shellAbortController = null;
 
+/**
+ * Mengambil Portal Role dari beberapa kemungkinan format respons.
+ */
 function getPortalRole(session) {
   return (
     session?.user?.portalRole ||
     session?.access?.portal?.role ||
+    session?.access?.portalRole ||
     'NONE'
   );
 }
 
+/**
+ * Mengambil role App A dari beberapa kemungkinan format respons.
+ */
 function getAppARole(session) {
   return (
     session?.access?.apps?.appA?.role ||
     session?.access?.appA?.role ||
+    session?.user?.appRoles?.appA ||
     'NONE'
   );
 }
 
+/**
+ * Memastikan hasil restoreSession selalu berbentuk object.
+ *
+ * Ini memperbaiki error:
+ * Cannot read properties of null (reading 'authenticated')
+ */
+async function resolveSessionSafely() {
+  try {
+    const session = await restoreSession();
+
+    if (!session || typeof session !== 'object') {
+      logger.warn(
+        'restoreSession returned an invalid result',
+        {
+          result: session
+        }
+      );
+
+      return {
+        authenticated: false,
+        source: 'invalid-result'
+      };
+    }
+
+    return session;
+  } catch (error) {
+    logger.error(
+      'Session restoration failed',
+      {
+        message: error.message
+      }
+    );
+
+    return {
+      authenticated: false,
+      source: 'error',
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Menampilkan shell Portal setelah autentikasi berhasil.
+ */
 function renderPortalShell(session) {
   const username =
     session?.user?.username ||
@@ -40,24 +96,33 @@ function renderPortalShell(session) {
   const appARole = getAppARole(session);
 
   root.innerHTML = `
-    <div class="min-h-screen bg-slate-100 lg:grid lg:grid-cols-[260px_1fr]">
+    <div
+      class="min-h-screen bg-slate-100
+             lg:grid lg:grid-cols-[260px_1fr]"
+    >
       <div
         id="sidebar-backdrop"
-        class="fixed inset-0 z-30 hidden bg-slate-950/40 lg:hidden"
+        class="fixed inset-0 z-30 hidden
+               bg-slate-950/40 lg:hidden"
       ></div>
 
       <aside
         id="sidebar"
-        class="fixed inset-y-0 left-0 z-40 w-72 -translate-x-full
-               border-r border-slate-200 bg-white p-4
+        class="fixed inset-y-0 left-0 z-40
+               w-72 -translate-x-full
+               border-r border-slate-200
+               bg-white p-4
                transition-transform duration-200
                lg:static lg:w-auto lg:translate-x-0"
       >
-        <div class="mb-6 flex items-center justify-between gap-4">
+        <div
+          class="mb-6 flex items-center
+                 justify-between gap-4"
+        >
           <div>
             <p
-              class="text-xs font-semibold uppercase tracking-[0.18em]
-                     text-blue-600"
+              class="text-xs font-semibold uppercase
+                     tracking-[0.18em] text-blue-600"
             >
               Portal V3
             </p>
@@ -70,7 +135,8 @@ function renderPortalShell(session) {
           <button
             id="close-sidebar"
             type="button"
-            class="app-button-secondary min-h-10 px-3 lg:hidden"
+            class="app-button-secondary
+                   min-h-10 px-3 lg:hidden"
             aria-label="Tutup menu"
           >
             ×
@@ -81,7 +147,8 @@ function renderPortalShell(session) {
           <button
             type="button"
             data-route="dashboard"
-            class="app-button-secondary w-full justify-start"
+            class="app-button-secondary
+                   w-full justify-start"
           >
             Dashboard
           </button>
@@ -89,13 +156,17 @@ function renderPortalShell(session) {
           <button
             type="button"
             data-route="appA"
-            class="app-button-secondary w-full justify-start"
+            class="app-button-secondary
+                   w-full justify-start"
           >
             App A
           </button>
         </nav>
 
-        <div class="mt-6 rounded-2xl bg-slate-50 p-4 text-sm">
+        <div
+          class="mt-6 rounded-2xl
+                 bg-slate-50 p-4 text-sm"
+        >
           <p class="font-semibold text-slate-900">
             ${username}
           </p>
@@ -126,23 +197,29 @@ function renderPortalShell(session) {
 
       <div class="min-w-0">
         <header
-          class="sticky top-0 z-20 border-b border-slate-200
+          class="sticky top-0 z-20
+                 border-b border-slate-200
                  bg-white/95 backdrop-blur"
         >
           <div
-            class="flex min-h-16 items-center gap-2 px-4 sm:px-6"
+            class="flex min-h-16 items-center
+                   gap-2 px-4 sm:px-6"
           >
             <button
               id="open-sidebar"
               type="button"
-              class="app-button-secondary min-h-10 px-3 lg:hidden"
+              class="app-button-secondary
+                     min-h-10 px-3 lg:hidden"
               aria-label="Buka menu"
             >
               ☰
             </button>
 
             <div class="min-w-0 flex-1">
-              <p class="truncate font-semibold text-slate-900">
+              <p
+                class="truncate font-semibold
+                       text-slate-900"
+              >
                 ${CONFIG.appName}
               </p>
 
@@ -156,8 +233,10 @@ function renderPortalShell(session) {
 
             <span
               id="network-status"
-              class="hidden rounded-full bg-emerald-100 px-3 py-1
-                     text-xs font-semibold text-emerald-700 sm:inline-flex"
+              class="hidden rounded-full
+                     bg-emerald-100 px-3 py-1
+                     text-xs font-semibold
+                     text-emerald-700 sm:inline-flex"
             >
               Online
             </span>
@@ -173,7 +252,8 @@ function renderPortalShell(session) {
             <button
               id="check-update"
               type="button"
-              class="app-button-secondary hidden min-h-10 px-3 sm:inline-flex"
+              class="app-button-secondary hidden
+                     min-h-10 px-3 sm:inline-flex"
             >
               Cek update
             </button>
@@ -197,43 +277,70 @@ function renderPortalShell(session) {
   `;
 }
 
+/**
+ * Membuka atau menutup sidebar mobile.
+ */
 function setSidebarOpen(open) {
-  const sidebar = document.querySelector('#sidebar');
+  const sidebar =
+    document.querySelector('#sidebar');
+
   const backdrop =
     document.querySelector('#sidebar-backdrop');
 
-  if (!sidebar || !backdrop) return;
+  if (!sidebar || !backdrop) {
+    return;
+  }
 
   sidebar.classList.toggle(
     '-translate-x-full',
     !open
   );
 
-  backdrop.classList.toggle('hidden', !open);
+  backdrop.classList.toggle(
+    'hidden',
+    !open
+  );
 }
 
+/**
+ * Memperbarui indikator online/offline.
+ */
 function updateNetworkStatus() {
   const element =
     document.querySelector('#network-status');
 
-  if (!element) return;
+  if (!element) {
+    return;
+  }
 
   const online = navigator.onLine;
 
-  element.textContent = online
-    ? 'Online'
-    : 'Offline';
+  element.textContent =
+    online ? 'Online' : 'Offline';
 
   element.className = online
-    ? `hidden rounded-full bg-emerald-100 px-3 py-1
-       text-xs font-semibold text-emerald-700 sm:inline-flex`
-    : `hidden rounded-full bg-amber-100 px-3 py-1
-       text-xs font-semibold text-amber-700 sm:inline-flex`;
+    ? [
+        'hidden rounded-full',
+        'bg-emerald-100 px-3 py-1',
+        'text-xs font-semibold',
+        'text-emerald-700 sm:inline-flex'
+      ].join(' ')
+    : [
+        'hidden rounded-full',
+        'bg-amber-100 px-3 py-1',
+        'text-xs font-semibold',
+        'text-amber-700 sm:inline-flex'
+      ].join(' ');
 }
 
+/**
+ * Memperbarui label dan tombol route aktif.
+ */
 function updateRouteUI(routeName) {
   const routeLabel =
-    document.querySelector('#current-route-label');
+    document.querySelector(
+      '#current-route-label'
+    );
 
   if (routeLabel) {
     routeLabel.textContent =
@@ -254,9 +361,12 @@ function updateRouteUI(routeName) {
     });
 }
 
+/**
+ * Membaca route awal dari hash URL.
+ */
 function getInitialRoute() {
   const route = window.location.hash
-    .replace('#', '')
+    .replace(/^#/, '')
     .trim();
 
   if (route === 'appA') {
@@ -266,172 +376,275 @@ function getInitialRoute() {
   return 'dashboard';
 }
 
-function registerRoutes(contentContainer) {
+/**
+ * Mendaftarkan modul yang tersedia pada Portal.
+ */
+function createNavigator(contentContainer) {
   router.register(
     'dashboard',
-    () => import('../apps/dashboard/index.js')
+    () => import(
+      '../apps/dashboard/index.js'
+    )
   );
 
   router.register(
     'appA',
-    () => import('../apps/app-a/index.js')
+    () => import(
+      '../apps/app-a/index.js'
+    )
   );
 
-  const navigate = async (
+  return async function navigate(
     routeName,
     {
       historyMode = 'push'
     } = {}
-  ) => {
-    updateRouteUI(routeName);
+  ) {
+    const safeRoute =
+      routeName === 'appA'
+        ? 'appA'
+        : 'dashboard';
 
-    await router.navigate(routeName, {
-      container: contentContainer,
-      mode: 'portal',
-      session: activeSession,
-      historyMode
-    });
+    updateRouteUI(safeRoute);
 
-    setSidebarOpen(false);
+    try {
+      await router.navigate(
+        safeRoute,
+        {
+          container: contentContainer,
+          mode: 'portal',
+          session: activeSession,
+          historyMode
+        }
+      );
+
+      setSidebarOpen(false);
+    } catch (error) {
+      logger.error(
+        'Route navigation failed',
+        {
+          route: safeRoute,
+          message: error.message
+        }
+      );
+
+      toast.error(
+        error.message ||
+        'Aplikasi gagal dibuka.'
+      );
+    }
   };
-
-  return navigate;
 }
 
+/**
+ * Mengikat semua event global Portal.
+ */
 function bindGlobalActions(navigate) {
+  if (shellAbortController) {
+    shellAbortController.abort();
+  }
+
+  shellAbortController =
+    new AbortController();
+
+  const { signal } =
+    shellAbortController;
+
   document
     .querySelector('#open-sidebar')
-    ?.addEventListener('click', () => {
-      setSidebarOpen(true);
-    });
+    ?.addEventListener(
+      'click',
+      () => setSidebarOpen(true),
+      { signal }
+    );
 
   document
     .querySelector('#close-sidebar')
-    ?.addEventListener('click', () => {
-      setSidebarOpen(false);
-    });
+    ?.addEventListener(
+      'click',
+      () => setSidebarOpen(false),
+      { signal }
+    );
 
   document
     .querySelector('#sidebar-backdrop')
-    ?.addEventListener('click', () => {
-      setSidebarOpen(false);
-    });
+    ?.addEventListener(
+      'click',
+      () => setSidebarOpen(false),
+      { signal }
+    );
 
   document
     .querySelectorAll('[data-route]')
     .forEach((button) => {
-      button.addEventListener('click', () => {
-        navigate(button.dataset.route);
-      });
+      button.addEventListener(
+        'click',
+        () => {
+          navigate(button.dataset.route);
+        },
+        { signal }
+      );
     });
 
   document
     .querySelector('#open-core-test')
-    ?.addEventListener('click', async () => {
-      const { modal } = await import(
-        '../core/modal.js'
-      );
+    ?.addEventListener(
+      'click',
+      async () => {
+        const { modal } = await import(
+          '../core/modal.js'
+        );
 
-      const { diagnostics } = await import(
-        '../core/diagnostics.js'
-      );
+        const { diagnostics } = await import(
+          '../core/diagnostics.js'
+        );
 
-      const snapshot = diagnostics.snapshot();
+        const snapshot =
+          diagnostics.snapshot();
 
-      modal.open({
-        title: 'Core Diagnostics',
-        content: `
-          <pre
-            class="max-h-[65vh] overflow-auto rounded-xl
-                   bg-slate-950 p-4 text-xs leading-5
-                   text-slate-100"
-          >${JSON.stringify(snapshot, null, 2)}</pre>
-        `,
-        confirmText: 'Tutup'
-      });
-    });
+        modal.open({
+          title: 'Core Diagnostics',
+          content: `
+            <pre
+              class="max-h-[65vh] overflow-auto
+                     rounded-xl bg-slate-950
+                     p-4 text-xs leading-5
+                     text-slate-100"
+            >${JSON.stringify(
+              snapshot,
+              null,
+              2
+            )}</pre>
+          `,
+          confirmText: 'Tutup'
+        });
+      },
+      { signal }
+    );
 
   document
     .querySelector('#check-update')
-    ?.addEventListener('click', async () => {
-      if (!pwaRegistration) {
-        toast.warning(
-          'Service worker belum aktif.'
-        );
+    ?.addEventListener(
+      'click',
+      async () => {
+        if (!pwaRegistration) {
+          toast.warning(
+            'Service worker belum aktif.'
+          );
 
-        return;
-      }
+          return;
+        }
 
-      try {
-        await pwaRegistration.update();
+        try {
+          await pwaRegistration.update();
 
-        toast.success(
-          'Pemeriksaan update selesai.'
-        );
-      } catch (error) {
-        toast.error(
-          error.message ||
-          'Pemeriksaan update gagal.'
-        );
-      }
-    });
+          toast.success(
+            'Pemeriksaan update selesai.'
+          );
+        } catch (error) {
+          toast.error(
+            error.message ||
+            'Pemeriksaan update gagal.'
+          );
+        }
+      },
+      { signal }
+    );
 
   document
     .querySelector('#logout-button')
-    ?.addEventListener('click', async () => {
-      await logout();
+    ?.addEventListener(
+      'click',
+      async () => {
+        try {
+          await logout();
+        } finally {
+          activeSession = null;
 
-      activeSession = null;
+          if (shellAbortController) {
+            shellAbortController.abort();
+            shellAbortController = null;
+          }
 
-      await startPortal();
-    });
+          await startPortal();
+        }
+      },
+      { signal }
+    );
 
   window.addEventListener(
     'online',
-    updateNetworkStatus
+    updateNetworkStatus,
+    { signal }
   );
 
   window.addEventListener(
     'offline',
-    updateNetworkStatus
+    updateNetworkStatus,
+    { signal }
   );
 
   window.addEventListener(
     'hashchange',
     () => {
-      const routeName = getInitialRoute();
+      const routeName =
+        getInitialRoute();
 
       if (
         store.getState().route !== routeName
       ) {
-        navigate(routeName, {
-          historyMode: 'none'
-        });
+        navigate(
+          routeName,
+          {
+            historyMode: 'none'
+          }
+        );
       }
-    }
+    },
+    { signal }
   );
 }
 
-async function startAuthenticatedPortal(session) {
+/**
+ * Menjalankan Portal setelah login.
+ */
+async function startAuthenticatedPortal(
+  session
+) {
   activeSession = session;
 
   renderPortalShell(session);
 
   const contentContainer =
-    document.querySelector('#portal-content');
+    document.querySelector(
+      '#portal-content'
+    );
+
+  if (!contentContainer) {
+    throw new Error(
+      'Portal content container tidak ditemukan.'
+    );
+  }
 
   const navigate =
-    registerRoutes(contentContainer);
+    createNavigator(contentContainer);
 
   bindGlobalActions(navigate);
   updateNetworkStatus();
 
-  const initialRoute = getInitialRoute();
+  const initialRoute =
+    getInitialRoute();
 
-  await navigate(initialRoute, {
-    historyMode: 'replace'
-  });
+  await navigate(
+    initialRoute,
+    {
+      historyMode: 'replace'
+    }
+  );
 
+  /**
+   * Prefetch App A ketika browser sedang idle.
+   */
   if ('requestIdleCallback' in window) {
     window.requestIdleCallback(() => {
       import('../apps/app-a/index.js');
@@ -443,26 +656,47 @@ async function startAuthenticatedPortal(session) {
   }
 }
 
+/**
+ * Menampilkan halaman login.
+ */
 function showLogin() {
-  renderLoginView(root, {
-    title: 'Masuk ke Portal',
-    subtitle:
-      'Gunakan username dan password Portal.',
-    submitText: 'Masuk',
-    onSuccess: async () => {
-      await startPortal();
+  if (shellAbortController) {
+    shellAbortController.abort();
+    shellAbortController = null;
+  }
+
+  renderLoginView(
+    root,
+    {
+      title: 'Masuk ke Portal',
+      subtitle:
+        'Gunakan username dan password Portal.',
+      submitText: 'Masuk',
+
+      onSuccess: async () => {
+        await startPortal();
+      }
     }
-  });
+  );
 }
 
+/**
+ * Entry utama Portal.
+ */
 async function startPortal() {
   root.innerHTML = `
     <div
-      class="flex min-h-screen items-center justify-center
-             bg-slate-100 p-4"
+      class="flex min-h-screen items-center
+             justify-center bg-slate-100 p-4"
     >
-      <div class="app-card w-full max-w-sm text-center">
-        <p class="text-sm font-semibold text-blue-600">
+      <div
+        class="app-card w-full max-w-sm
+               text-center"
+      >
+        <p
+          class="text-sm font-semibold
+                 text-blue-600"
+        >
           Portal V3
         </p>
 
@@ -474,21 +708,93 @@ async function startPortal() {
   `;
 
   const session =
-    await restoreSession();
+    await resolveSessionSafely();
 
-  if (!session.authenticated) {
+  /**
+   * Jangan pernah membaca session.authenticated
+   * tanpa memastikan session bukan null.
+   */
+  if (
+    !session ||
+    session.authenticated !== true
+  ) {
     showLogin();
     return;
   }
 
-  await startAuthenticatedPortal(session);
+  try {
+    await startAuthenticatedPortal(
+      session
+    );
+  } catch (error) {
+    logger.error(
+      'Portal startup failed',
+      {
+        message: error.message
+      }
+    );
+
+    root.innerHTML = `
+      <div
+        class="flex min-h-screen items-center
+               justify-center bg-slate-100 p-4"
+      >
+        <section
+          class="app-card w-full max-w-md"
+        >
+          <p
+            class="text-sm font-semibold
+                   text-red-600"
+          >
+            Portal gagal dimuat
+          </p>
+
+          <p
+            class="mt-2 text-sm
+                   text-slate-600"
+          >
+            ${error.message}
+          </p>
+
+          <button
+            id="retry-portal"
+            type="button"
+            class="app-button-primary mt-5"
+          >
+            Coba lagi
+          </button>
+        </section>
+      </div>
+    `;
+
+    document
+      .querySelector('#retry-portal')
+      ?.addEventListener(
+        'click',
+        () => startPortal(),
+        { once: true }
+      );
+  }
 }
 
+/**
+ * Registrasi PWA tidak boleh menghambat startup.
+ */
 async function startPwa() {
-  const result = await registerPwa();
+  try {
+    const result =
+      await registerPwa();
 
-  pwaRegistration =
-    result?.registration || null;
+    pwaRegistration =
+      result?.registration || null;
+  } catch (error) {
+    logger.warn(
+      'PWA registration failed',
+      {
+        message: error.message
+      }
+    );
+  }
 }
 
 startPwa();
