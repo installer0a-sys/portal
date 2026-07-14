@@ -4,6 +4,9 @@ import {
 import {
   Portal
 } from '../sdk/portal-sdk.js';
+import {
+  installEventBridge
+} from '../core/event-bridge.js';
 
 let installed = false;
 
@@ -116,6 +119,8 @@ export function installDevTools() {
   }
 
   installed = true;
+
+  installEventBridge();
 
   document.addEventListener(
     'keydown',

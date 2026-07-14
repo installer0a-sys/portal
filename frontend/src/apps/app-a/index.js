@@ -5,6 +5,9 @@ import {
   queueManager
 } from '../../core/queue.js';
 import { callApi } from '../../core/api.js';
+import {
+  eventBus
+} from '../../core/event-bus.js';
 
 let mountedContainer = null;
 
@@ -31,7 +34,7 @@ const appA = defineApp({
               </h2>
 
               <p class="mt-2 text-sm text-slate-600">
-                App A sekarang didefinisikan melalui Portal SDK.
+                App A menggunakan Portal Event Bus untuk mengumumkan hasil operasi.
               </p>
             </div>
 
@@ -112,8 +115,7 @@ const appA = defineApp({
               label:
                 'Tes koneksi App A',
               mode: 'drop',
-              successMessage:
-                'App A terhubung.',
+              successMessage: '',
               errorMessage:
                 'App A gagal terhubung.',
               task: () =>
@@ -132,9 +134,49 @@ const appA = defineApp({
               null,
               2
             );
+
+          await eventBus.emit(
+            'appA.ping.completed',
+            {
+              result,
+              appId: 'appA'
+            },
+            {
+              source:
+                'appA'
+            }
+          );
+
+          await eventBus.emit(
+            'portal.notification.success',
+            {
+              message:
+                'App A terhubung.',
+              key:
+                'appA-ping-success'
+            },
+            {
+              source:
+                'appA'
+            }
+          );
         } catch (error) {
           output.textContent =
             `ERROR: ${error.message}`;
+
+          await eventBus.emit(
+            'appA.ping.failed',
+            {
+              message:
+                error.message,
+              appId:
+                'appA'
+            },
+            {
+              source:
+                'appA'
+            }
+          );
         } finally {
           testButton.disabled = false;
           testButton.textContent =

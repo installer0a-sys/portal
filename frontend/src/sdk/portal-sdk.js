@@ -26,6 +26,9 @@ import {
   updateManager
 } from '../core/update-manager.js';
 import {
+  eventBus
+} from '../core/event-bus.js';
+import {
   VERSION_INFO
 } from '../core/version.js';
 
@@ -120,7 +123,7 @@ export function defineApp(
 
 export const Portal = {
   version:
-    VERSION_INFO.version,
+    '0.4.0',
   build:
     VERSION_INFO.build,
 
@@ -134,6 +137,8 @@ export const Portal = {
     cacheEngine,
   update:
     updateManager,
+  events:
+    eventBus,
   router,
   lifecycle:
     lifecycleManager,
