@@ -9,7 +9,11 @@ function buildSnapshot(data) {
   return {
     user: data.user || null,
     access: data.access || {},
-    permissionSignature: data.permissionSignature || '',
+    permissionSignature:
+      data.permissionSignature ||
+      data.access?.permissionSignature ||
+      '',
+    expiresAt: data.expiresAt || '',
     validatedAt: Date.now()
   };
 }
@@ -33,111 +37,63 @@ function applyLoggedOutState() {
 export async function login(username, password) {
   const result = await callApi(
     'auth.login',
-    {
-      username,
-      password
-    },
+    { username, password },
     {
       anonymous: true,
-      deduplicate: false
+      deduplicate: false,
+      timeoutMs: 30000
     }
   );
 
   const token = result.data?.sessionToken || '';
+  if (!token) throw new Error('Session token tidak ditemukan.');
 
-  if (!token) {
-    throw new Error('Session token tidak ditemukan.');
-  }
-
-  const snapshot = buildSnapshot(result.data);
-
-  sessionStore.setToken(token);
-  sessionStore.setAuthSnapshot(snapshot);
-
+  const snapshot = buildSnapshot(result.data || {});
+  sessionStore.setSession(token, snapshot);
   applyAuthenticatedState(snapshot);
 
   logger.info('Login successful', {
     username: snapshot.user?.username || ''
   });
 
-  return {
-    authenticated: true,
-    source: 'login',
-    ...snapshot
-  };
+  return snapshot;
 }
 
-export async function restoreSession({
-  forceValidation = false
-} = {}) {
+export async function restoreSession({ forceValidation = false } = {}) {
   const token = sessionStore.getToken();
   const cached = sessionStore.getAuthSnapshot();
 
   if (!token) {
     applyLoggedOutState();
-
-    return {
-      authenticated: false,
-      source: 'none'
-    };
+    return null;
   }
 
   if (cached) {
     const referenceTime = Number(
-      cached.validatedAt ||
-      cached.savedAt ||
-      0
+      cached.validatedAt || cached.savedAt || 0
     );
-
     const age = Date.now() - referenceTime;
 
-    if (
-      !forceValidation &&
-      age >= 0 &&
-      age < SESSION_REVALIDATE_MS
-    ) {
+    if (!forceValidation && age >= 0 && age < SESSION_REVALIDATE_MS) {
       applyAuthenticatedState(cached);
-
-      return {
-        authenticated: true,
-        source: 'cache',
-        ...cached
-      };
+      logger.info('Session restored from cache', {
+        username: cached.user?.username || ''
+      });
+      return cached;
     }
   }
 
   try {
-    const result = await callApi(
-      'auth.session',
-      {},
-      {
-        deduplicate: true
-      }
-    );
-
-    const snapshot = buildSnapshot(result.data);
-
+    const result = await callApi('auth.session', {}, { deduplicate: true });
+    const snapshot = buildSnapshot(result.data || {});
     sessionStore.setAuthSnapshot(snapshot);
     applyAuthenticatedState(snapshot);
-
-    return {
-      authenticated: true,
-      source: 'server',
-      ...snapshot
-    };
+    return snapshot;
   } catch (error) {
     sessionStore.clearRuntimeSession();
     applyLoggedOutState();
-
-    logger.warn('Session restore failed', {
-      message: error.message
-    });
-
-    return {
-      authenticated: false,
-      source: 'server',
-      error: error.message
-    };
+    logger.warn('Session restore failed', { message: error.message });
+    return null;
   }
 }
 
@@ -147,25 +103,35 @@ export async function logout() {
   sessionStore.clearRuntimeSession();
   applyLoggedOutState();
 
-  if (!token) {
-    return;
-  }
+  if (!token) return;
 
   callApi(
     'auth.logout',
     {},
     {
       sessionTokenOverride: token,
-      deduplicate: false
+      deduplicate: false,
+      timeoutMs: 8000
     }
   ).catch((error) => {
-    logger.warn('Server logout failed', {
-      message: error.message
-    });
+    logger.warn('Server logout failed', { message: error.message });
   });
 }
+
+export function getProfile() {
+  return sessionStore.getProfile();
+}
+
+export function can(permission) {
+  const permissions = getProfile()?.access?.permissions || [];
+  return permissions.includes(permission);
+}
+
 export const auth = {
   login,
+  restore: restoreSession,
   restoreSession,
-  logout
+  logout,
+  getProfile,
+  can
 };
