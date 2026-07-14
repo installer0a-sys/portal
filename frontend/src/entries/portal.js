@@ -3,65 +3,217 @@ import { CONFIG } from '../core/config.js';
 import { callApi } from '../core/api.js';
 import { registerPwa } from '../core/pwa.js';
 
-const app = document.querySelector('#app');
+document.title = CONFIG.appName;
 
-app.innerHTML = `
-  <div class="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
-    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-72 -translate-x-full border-r border-slate-200 bg-white p-4 transition-transform lg:static lg:w-auto lg:translate-x-0">
-      <div class="mb-6 flex items-center justify-between">
-        <div><p class="text-xs font-semibold uppercase tracking-wider text-brand-600">Portal V3</p><h1 class="font-bold">AZKO Kudus</h1></div>
-        <button id="close-sidebar" class="app-button-secondary px-3 lg:hidden" aria-label="Tutup menu">×</button>
+document.querySelector('#app').innerHTML = `
+  <div class="min-h-screen bg-slate-100">
+    <header class="border-b border-slate-200 bg-white">
+      <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">
+            Portal V3
+          </p>
+          <h1 class="text-xl font-bold text-slate-900">
+            ${CONFIG.appName}
+          </h1>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span
+            id="online-status"
+            class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700"
+          >
+            Online
+          </span>
+
+          <button
+            id="check-update"
+            class="app-button-secondary"
+            type="button"
+          >
+            Cek update
+          </button>
+        </div>
       </div>
-      <nav class="space-y-2">
-        <button class="app-button-primary w-full justify-start">Dashboard</button>
-        <button class="app-button-secondary w-full justify-start" disabled>App A — fase berikutnya</button>
-      </nav>
-    </aside>
-    <div>
-      <header class="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-slate-200 bg-white/95 px-4 backdrop-blur">
-        <button id="open-sidebar" class="app-button-secondary px-3 lg:hidden" aria-label="Buka menu">☰</button>
-        <div class="min-w-0 flex-1"><p class="truncate font-semibold">${CONFIG.appName}</p><p class="text-xs text-slate-500">Fondasi ringan dan responsif</p></div>
-        <span id="network" class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">Online</span>
-      </header>
-      <main class="mx-auto max-w-6xl space-y-4 p-4 sm:p-6">
-        <section class="app-card">
-          <p class="text-sm font-semibold text-brand-600">Fase 1</p>
-          <h2 class="mt-1 text-2xl font-bold">Fondasi Portal berhasil dimuat</h2>
-          <p class="mt-2 text-sm leading-6 text-slate-600">Frontend ini tidak memuat kode aplikasi lain. Login, role, dan App A akan ditambahkan setelah koneksi produksi lulus pengujian.</p>
-          <div class="mt-4 flex flex-wrap gap-2">
-            <button id="test-api" class="app-button-primary">Tes koneksi Apps Script</button>
-            <a href="./app-a/" class="app-button-secondary">Tes entry App A</a>
+    </header>
+
+    <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+      <section class="grid gap-4 lg:grid-cols-3">
+        <article class="app-card lg:col-span-2">
+          <p class="text-sm font-semibold text-blue-600">
+            Foundation aktif
+          </p>
+
+          <h2 class="mt-2 text-2xl font-bold text-slate-900">
+            Portal Core V3
+          </h2>
+
+          <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+            Frontend berjalan dari GitHub Pages, sedangkan data dan proses
+            server berjalan dari Google Apps Script.
+          </p>
+
+          <div class="mt-6 flex flex-wrap gap-3">
+            <button
+              id="test-api"
+              type="button"
+              class="app-button-primary"
+            >
+              Tes koneksi API
+            </button>
+
+            <a
+              href="${CONFIG.basePath}app-a/"
+              class="app-button-secondary"
+            >
+              Buka App A langsung
+            </a>
           </div>
-          <pre id="result" class="mt-4 overflow-auto rounded-xl bg-slate-950 p-4 text-xs text-slate-100">Belum diuji.</pre>
-        </section>
-        <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <article class="app-card"><p class="text-sm text-slate-500">Frontend</p><p class="mt-1 font-bold">Vite + Tailwind CSS</p></article>
-          <article class="app-card"><p class="text-sm text-slate-500">PWA</p><p class="mt-1 font-bold">Portal + App tunggal</p></article>
-          <article class="app-card"><p class="text-sm text-slate-500">Versi</p><p class="mt-1 font-bold">${CONFIG.version}</p></article>
-        </section>
-      </main>
-    </div>
-  </div>`;
+        </article>
 
-const sidebar = document.querySelector('#sidebar');
-document.querySelector('#open-sidebar').addEventListener('click', () => sidebar.classList.remove('-translate-x-full'));
-document.querySelector('#close-sidebar').addEventListener('click', () => sidebar.classList.add('-translate-x-full'));
-document.querySelector('#test-api').addEventListener('click', async () => {
-  const result = document.querySelector('#result');
-  result.textContent = 'Menghubungkan...';
-  try { result.textContent = JSON.stringify(await callApi('system.ping'), null, 2); }
-  catch (error) { result.textContent = `ERROR: ${error.message}`; }
-});
+        <aside class="app-card">
+          <h3 class="text-sm font-bold text-slate-900">
+            Build information
+          </h3>
 
-function updateNetwork() {
-  const el = document.querySelector('#network');
+          <dl class="mt-4 space-y-3 text-sm">
+            <div class="flex justify-between gap-4">
+              <dt class="text-slate-500">Frontend</dt>
+              <dd class="font-semibold text-slate-900">
+                ${CONFIG.version}
+              </dd>
+            </div>
+
+            <div class="flex justify-between gap-4">
+              <dt class="text-slate-500">Base path</dt>
+              <dd class="font-mono text-xs text-slate-700">
+                ${CONFIG.basePath}
+              </dd>
+            </div>
+
+            <div class="flex justify-between gap-4">
+              <dt class="text-slate-500">PWA</dt>
+              <dd id="pwa-status" class="font-semibold text-slate-900">
+                Memeriksa
+              </dd>
+            </div>
+          </dl>
+        </aside>
+      </section>
+
+      <section class="mt-4 grid gap-4 md:grid-cols-2">
+        <article class="app-card">
+          <h3 class="text-lg font-bold text-slate-900">
+            API diagnostics
+          </h3>
+
+          <pre
+            id="api-result"
+            class="mt-4 min-h-40 overflow-auto rounded-xl bg-slate-950 p-4 text-xs leading-5 text-slate-100"
+          >Belum diuji.</pre>
+        </article>
+
+        <article class="app-card">
+          <h3 class="text-lg font-bold text-slate-900">
+            Core status
+          </h3>
+
+          <div class="mt-4 space-y-3">
+            <div class="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
+              <span class="text-sm text-slate-600">GitHub Pages</span>
+              <strong class="text-sm text-emerald-600">Aktif</strong>
+            </div>
+
+            <div class="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
+              <span class="text-sm text-slate-600">Tailwind CSS</span>
+              <strong class="text-sm text-emerald-600">Aktif</strong>
+            </div>
+
+            <div class="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
+              <span class="text-sm text-slate-600">Vite build</span>
+              <strong class="text-sm text-emerald-600">Aktif</strong>
+            </div>
+
+            <div class="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
+              <span class="text-sm text-slate-600">Apps Script API</span>
+              <strong id="api-status" class="text-sm text-slate-500">
+                Belum diuji
+              </strong>
+            </div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+`;
+
+const resultElement = document.querySelector('#api-result');
+const statusElement = document.querySelector('#api-status');
+const onlineStatusElement = document.querySelector('#online-status');
+const pwaStatusElement = document.querySelector('#pwa-status');
+
+function updateOnlineStatus() {
   const online = navigator.onLine;
-  el.textContent = online ? 'Online' : 'Offline';
-  el.className = online
+
+  onlineStatusElement.textContent = online ? 'Online' : 'Offline';
+  onlineStatusElement.className = online
     ? 'rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700'
     : 'rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700';
 }
-window.addEventListener('online', updateNetwork);
-window.addEventListener('offline', updateNetwork);
-updateNetwork();
-registerPwa();
+
+window.addEventListener('online', updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+updateOnlineStatus();
+
+document.querySelector('#test-api').addEventListener('click', async () => {
+  resultElement.textContent = 'Menghubungi Apps Script...';
+  statusElement.textContent = 'Memeriksa';
+  statusElement.className = 'text-sm font-semibold text-amber-600';
+
+  const startedAt = performance.now();
+
+  try {
+    const result = await callApi('system.ping');
+
+    const duration = Math.round(performance.now() - startedAt);
+
+    resultElement.textContent = JSON.stringify(
+      {
+        durationMs: duration,
+        response: result
+      },
+      null,
+      2
+    );
+
+    statusElement.textContent = `${duration} ms`;
+    statusElement.className = 'text-sm font-semibold text-emerald-600';
+  } catch (error) {
+    resultElement.textContent = JSON.stringify(
+      {
+        error: error.message
+      },
+      null,
+      2
+    );
+
+    statusElement.textContent = 'Gagal';
+    statusElement.className = 'text-sm font-semibold text-red-600';
+  }
+});
+
+const pwa = await registerPwa();
+
+pwaStatusElement.textContent = pwa.supported
+  ? 'Didukung'
+  : 'Tidak didukung';
+
+document.querySelector('#check-update').addEventListener('click', async () => {
+  if (!pwa.registration) {
+    alert('Service worker belum aktif.');
+    return;
+  }
+
+  await pwa.registration.update();
+  alert('Pemeriksaan update selesai.');
+});
