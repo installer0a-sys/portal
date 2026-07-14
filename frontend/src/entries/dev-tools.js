@@ -9,7 +9,9 @@ let installed = false;
 
 function handleKeyboard(event) {
   if (event.key === 'Escape') {
-    if (developerConsole.isOpen()) {
+    if (
+      developerConsole.isOpen()
+    ) {
       event.preventDefault();
       developerConsole.close();
     }
@@ -30,21 +32,39 @@ function handleKeyboard(event) {
 
   if (key === 'd') {
     event.preventDefault();
-    developerConsole.toggle('system');
+    developerConsole.toggle(
+      'system'
+    );
   }
 
   if (key === 'l') {
     event.preventDefault();
-    developerConsole.open('logs');
+    developerConsole.open(
+      'logs'
+    );
   }
 
   if (key === 'q') {
     event.preventDefault();
-    developerConsole.open('queue');
+    developerConsole.open(
+      'queue'
+    );
+  }
+
+  if (key === 'u') {
+    event.preventDefault();
+
+    Portal.update
+      .check({
+        notify: true
+      })
+      .catch(() => {});
   }
 }
 
-function handleCoreTestClick(event) {
+function handleCoreTestClick(
+  event
+) {
   const trigger =
     event.target?.closest?.(
       '#open-core-test'
@@ -58,7 +78,36 @@ function handleCoreTestClick(event) {
   event.stopPropagation();
   event.stopImmediatePropagation();
 
-  developerConsole.open('system');
+  developerConsole.open(
+    'system'
+  );
+}
+
+function handleUpdateClick(
+  event
+) {
+  const trigger =
+    event.target?.closest?.(
+      '#check-update'
+    );
+
+  if (!trigger) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+  event.stopImmediatePropagation();
+
+  trigger.disabled = true;
+
+  Portal.update
+    .check({
+      notify: true
+    })
+    .finally(() => {
+      trigger.disabled = false;
+    });
 }
 
 export function installDevTools() {
@@ -76,6 +125,12 @@ export function installDevTools() {
   document.addEventListener(
     'click',
     handleCoreTestClick,
+    true
+  );
+
+  document.addEventListener(
+    'click',
+    handleUpdateClick,
     true
   );
 

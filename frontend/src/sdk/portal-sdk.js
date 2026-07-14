@@ -22,13 +22,22 @@ import {
 import {
   cacheEngine
 } from '../core/cache.js';
+import {
+  updateManager
+} from '../core/update-manager.js';
+import {
+  VERSION_INFO
+} from '../core/version.js';
 
 const sdkState = {
   apps: new Map(),
-  startedAt: new Date().toISOString()
+  startedAt:
+    new Date().toISOString()
 };
 
-function assertAppDefinition(definition) {
+function assertAppDefinition(
+  definition
+) {
   if (
     !definition ||
     typeof definition !== 'object'
@@ -45,7 +54,8 @@ function assertAppDefinition(definition) {
   }
 
   if (
-    typeof definition.mount !== 'function'
+    typeof definition.mount !==
+    'function'
   ) {
     throw new Error(
       `Aplikasi ${definition.id} wajib memiliki mount().`
@@ -53,73 +63,114 @@ function assertAppDefinition(definition) {
   }
 }
 
-export function defineApp(definition) {
-  assertAppDefinition(definition);
+export function defineApp(
+  definition
+) {
+  assertAppDefinition(
+    definition
+  );
 
   const app = {
-    id: String(definition.id),
-    mount: definition.mount,
+    id:
+      String(definition.id),
+    mount:
+      definition.mount,
     refresh:
-      typeof definition.refresh === 'function'
+      typeof definition.refresh ===
+      'function'
         ? definition.refresh
         : async () => {},
     pause:
-      typeof definition.pause === 'function'
+      typeof definition.pause ===
+      'function'
         ? definition.pause
         : async () => {},
     resume:
-      typeof definition.resume === 'function'
+      typeof definition.resume ===
+      'function'
         ? definition.resume
         : async () => {},
     unmount:
-      typeof definition.unmount === 'function'
+      typeof definition.unmount ===
+      'function'
         ? definition.unmount
         : async () => {}
   };
 
-  sdkState.apps.set(app.id, {
-    id: app.id,
-    registeredAt: new Date().toISOString()
-  });
+  sdkState.apps.set(
+    app.id,
+    {
+      id:
+        app.id,
+      registeredAt:
+        new Date().toISOString()
+    }
+  );
 
-  logger.info('SDK app defined', {
-    appId: app.id
-  });
+  logger.info(
+    'SDK app defined',
+    {
+      appId:
+        app.id
+    }
+  );
 
   return app;
 }
 
 export const Portal = {
-  version: '0.3.8',
+  version:
+    VERSION_INFO.version,
+  build:
+    VERSION_INFO.build,
 
   defineApp,
 
-  registry: appRegistry,
-  permission: permissionEngine,
-  cache: cacheEngine,
+  registry:
+    appRegistry,
+  permission:
+    permissionEngine,
+  cache:
+    cacheEngine,
+  update:
+    updateManager,
   router,
-  lifecycle: lifecycleManager,
-  modules: moduleLoader,
-  queue: queueManager,
-  loading: loadingManager,
+  lifecycle:
+    lifecycleManager,
+  modules:
+    moduleLoader,
+  queue:
+    queueManager,
+  loading:
+    loadingManager,
   toast,
   logger,
 
   snapshot() {
     return {
-      version: this.version,
-      startedAt: sdkState.startedAt,
-      registeredApps: [
-        ...sdkState.apps.values()
-      ],
+      version:
+        this.version,
+      build:
+        this.build,
+      startedAt:
+        sdkState.startedAt,
+      registeredApps:
+        [
+          ...sdkState.apps.values()
+        ],
       manifestCount:
         appRegistry.list({
-          enabledOnly: false
+          enabledOnly:
+            false
         }).length
     };
   }
 };
 
-if (typeof window !== 'undefined') {
-  window.Portal = Portal;
+if (
+  typeof window !==
+  'undefined'
+) {
+  window.Portal =
+    Portal;
 }

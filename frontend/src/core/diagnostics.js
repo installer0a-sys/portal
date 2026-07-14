@@ -22,6 +22,12 @@ import {
 import {
   cacheEngine
 } from './cache.js';
+import {
+  updateManager
+} from './update-manager.js';
+import {
+  VERSION_INFO
+} from './version.js';
 
 const startedAt =
   performance.now();
@@ -55,7 +61,9 @@ export const diagnostics = {
       lastError:
         state.lastError,
       frontendVersion:
-        state.appVersion,
+        VERSION_INFO.version,
+      frontendBuild:
+        VERSION_INFO.build,
       serviceWorkerSupported:
         'serviceWorker' in navigator,
       userAgent:
@@ -79,6 +87,8 @@ export const diagnostics = {
           : null,
       sdk:
         Portal.snapshot(),
+      update:
+        updateManager.snapshot(),
       registry:
         appRegistry.snapshot(),
       permission:
