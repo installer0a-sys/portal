@@ -5,28 +5,25 @@ import { logger } from '../core/logger.js';
 
 const SESSION_REVALIDATE_MS = 5 * 60 * 1000;
 
-function buildSnapshot(data) {
+function normalize(data = {}) {
   return {
-    user: data.user || null,
-    access: data.access || {},
+    user: data.user || data.profile?.user || null,
+    access: data.access || data.profile?.access || {},
     permissionSignature:
-      data.permissionSignature ||
-      data.access?.permissionSignature ||
-      '',
-    expiresAt: data.expiresAt || '',
+      data.permissionSignature || data.profile?.permissionSignature || '',
     validatedAt: Date.now()
   };
 }
 
-function applyAuthenticatedState(snapshot) {
+function applySession(snapshot) {
   store.setState({
-    user: snapshot.user,
+    user: snapshot.user || null,
     permissions: snapshot.access || {},
     lastError: null
   });
 }
 
-function applyLoggedOutState() {
+function clearSessionState() {
   store.setState({
     user: null,
     permissions: {},
@@ -37,63 +34,82 @@ function applyLoggedOutState() {
 export async function login(username, password) {
   const result = await callApi(
     'auth.login',
-    { username, password },
     {
-      anonymous: true,
-      deduplicate: false,
-      timeoutMs: 30000
-    }
+      username: String(username || '').trim(),
+      password: String(password || '')
+    },
+    { anonymous: true, deduplicate: false }
   );
 
-  const token = result.data?.sessionToken || '';
+  const token = String(result?.data?.sessionToken || '');
   if (!token) throw new Error('Session token tidak ditemukan.');
 
-  const snapshot = buildSnapshot(result.data || {});
-  sessionStore.setSession(token, snapshot);
-  applyAuthenticatedState(snapshot);
+  const snapshot = normalize(result.data || {});
+  sessionStore.setToken(token);
+  sessionStore.setAuthSnapshot(snapshot);
+  applySession(snapshot);
 
   logger.info('Login successful', {
     username: snapshot.user?.username || ''
   });
 
-  return snapshot;
+  return {
+    authenticated: true,
+    source: 'login',
+    ...snapshot
+  };
 }
 
 export async function restoreSession({ forceValidation = false } = {}) {
   const token = sessionStore.getToken();
-  const cached = sessionStore.getAuthSnapshot();
 
   if (!token) {
-    applyLoggedOutState();
-    return null;
+    clearSessionState();
+    return { authenticated: false, source: 'none' };
   }
 
-  if (cached) {
-    const referenceTime = Number(
+  const cached = sessionStore.getAuthSnapshot();
+
+  if (cached && !forceValidation) {
+    const age = Date.now() - Number(
       cached.validatedAt || cached.savedAt || 0
     );
-    const age = Date.now() - referenceTime;
 
-    if (!forceValidation && age >= 0 && age < SESSION_REVALIDATE_MS) {
-      applyAuthenticatedState(cached);
-      logger.info('Session restored from cache', {
-        username: cached.user?.username || ''
-      });
-      return cached;
+    if (age >= 0 && age < SESSION_REVALIDATE_MS) {
+      applySession(cached);
+      return {
+        authenticated: true,
+        source: 'cache',
+        ...cached
+      };
     }
   }
 
   try {
-    const result = await callApi('auth.session', {}, { deduplicate: true });
-    const snapshot = buildSnapshot(result.data || {});
+    const result = await callApi('auth.session');
+    const snapshot = normalize(result.data || {});
+
     sessionStore.setAuthSnapshot(snapshot);
-    applyAuthenticatedState(snapshot);
-    return snapshot;
+    applySession(snapshot);
+
+    return {
+      authenticated: true,
+      source: 'server',
+      ...snapshot
+    };
   } catch (error) {
     sessionStore.clearRuntimeSession();
-    applyLoggedOutState();
-    logger.warn('Session restore failed', { message: error.message });
-    return null;
+    clearSessionState();
+
+    logger.warn('Session restore failed', {
+      message: error.message
+    });
+
+    return {
+      authenticated: false,
+      source: 'server',
+      error: error.message
+    };
   }
 }
 
@@ -101,7 +117,7 @@ export async function logout() {
   const token = sessionStore.getToken();
 
   sessionStore.clearRuntimeSession();
-  applyLoggedOutState();
+  clearSessionState();
 
   if (!token) return;
 
@@ -110,20 +126,31 @@ export async function logout() {
     {},
     {
       sessionTokenOverride: token,
-      deduplicate: false,
-      timeoutMs: 8000
+      deduplicate: false
     }
   ).catch((error) => {
-    logger.warn('Server logout failed', { message: error.message });
+    logger.warn('Server logout failed', {
+      message: error.message
+    });
   });
 }
 
 export function getProfile() {
-  return sessionStore.getProfile();
+  return sessionStore.getAuthSnapshot();
 }
 
 export function can(permission) {
-  const permissions = getProfile()?.access?.permissions || [];
+  const access = getProfile()?.access || {};
+  const permissions = [
+    ...(Array.isArray(access.permissions) ? access.permissions : []),
+    ...(Array.isArray(access.portal?.permissions)
+      ? access.portal.permissions
+      : []),
+    ...Object.values(access.apps || {}).flatMap((item) =>
+      Array.isArray(item?.permissions) ? item.permissions : []
+    )
+  ];
+
   return permissions.includes(permission);
 }
 

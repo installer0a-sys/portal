@@ -6,23 +6,12 @@ export function renderLoginView(container, options = {}) {
     throw new Error('Container halaman login tidak ditemukan.');
   }
 
-  const title =
-    options.title ||
-    options.appName ||
-    options.heading ||
-    'Masuk ke Portal';
-
+  const title = options.title || options.appName || 'Masuk ke Portal';
   const subtitle =
     options.subtitle ||
     options.description ||
-    options.message ||
     'Gunakan username dan password Anda.';
-
-  const submitText =
-    options.submitText ||
-    options.buttonText ||
-    'Masuk';
-
+  const submitText = options.submitText || 'Masuk';
   const onSuccess =
     options.onSuccess ||
     options.onAuthenticated ||
@@ -35,47 +24,33 @@ export function renderLoginView(container, options = {}) {
         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">
           Portal V3
         </p>
-
         <h1 class="mt-2 text-2xl font-bold text-slate-900">
           ${escapeHtml(title)}
         </h1>
-
         <p class="mt-2 text-sm leading-6 text-slate-600">
           ${escapeHtml(subtitle)}
         </p>
 
-        <form id="portal-login-form" class="mt-6 space-y-4">
+        <form data-login-form class="mt-6 space-y-4">
           <div>
-            <label
-              for="portal-login-username"
-              class="mb-2 block text-sm font-semibold text-slate-700"
-            >
+            <label class="mb-2 block text-sm font-semibold text-slate-700">
               Username
             </label>
-
             <input
-              id="portal-login-username"
-              name="username"
+              data-login-username
               type="text"
               autocomplete="username"
-              autocapitalize="none"
-              spellcheck="false"
               required
               class="min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
             >
           </div>
 
           <div>
-            <label
-              for="portal-login-password"
-              class="mb-2 block text-sm font-semibold text-slate-700"
-            >
+            <label class="mb-2 block text-sm font-semibold text-slate-700">
               Password
             </label>
-
             <input
-              id="portal-login-password"
-              name="password"
+              data-login-password
               type="password"
               autocomplete="current-password"
               required
@@ -84,13 +59,12 @@ export function renderLoginView(container, options = {}) {
           </div>
 
           <div
-            id="portal-login-error"
+            data-login-error
             class="hidden rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-            role="alert"
           ></div>
 
           <button
-            id="portal-login-submit"
+            data-login-submit
             type="submit"
             class="app-button-primary w-full"
           >
@@ -101,81 +75,66 @@ export function renderLoginView(container, options = {}) {
     </div>
   `;
 
-  const form = container.querySelector('#portal-login-form');
-  const usernameInput =
-    container.querySelector('#portal-login-username');
-  const passwordInput =
-    container.querySelector('#portal-login-password');
-  const submitButton =
-    container.querySelector('#portal-login-submit');
-  const errorElement =
-    container.querySelector('#portal-login-error');
+  const form = container.querySelector('[data-login-form]');
+  const username = container.querySelector('[data-login-username]');
+  const password = container.querySelector('[data-login-password]');
+  const submit = container.querySelector('[data-login-submit]');
+  const errorBox = container.querySelector('[data-login-error]');
 
-  usernameInput.focus();
+  username?.focus();
 
-  form.addEventListener('submit', async (event) => {
+  form?.addEventListener('submit', async (event) => {
     event.preventDefault();
 
-    const username =
-      String(usernameInput.value || '').trim();
-    const password =
-      String(passwordInput.value || '');
+    const userValue = String(username?.value || '').trim();
+    const passValue = String(password?.value || '');
 
-    hideError(errorElement);
+    hideError(errorBox);
 
-    if (!username || !password) {
-      showError(
-        errorElement,
-        'Username dan password wajib diisi.'
-      );
+    if (!userValue || !passValue) {
+      showError(errorBox, 'Username dan password wajib diisi.');
       return;
     }
 
-    setLoading(submitButton, true, submitText);
+    setLoading(submit, true, submitText);
 
     try {
-      const session = await login(username, password);
+      const session = await login(userValue, passValue);
 
       logger.info('Login view completed', {
-        username
+        username: userValue
       });
 
       if (typeof onSuccess === 'function') {
         await onSuccess(session);
       }
     } catch (error) {
-      logger.warn('Login view failed', {
-        username,
-        message: error.message
-      });
+      showError(errorBox, error.message || 'Login gagal.');
 
-      showError(
-        errorElement,
-        error.message ||
-          'Login gagal. Periksa username dan password.'
-      );
-
-      passwordInput.value = '';
-      passwordInput.focus();
+      if (password) {
+        password.value = '';
+        password.focus();
+      }
     } finally {
-      setLoading(submitButton, false, submitText);
+      setLoading(submit, false, submitText);
     }
   });
 }
 
-function setLoading(button, loading, defaultText) {
+function setLoading(button, loading, text) {
+  if (!button) return;
   button.disabled = loading;
-  button.textContent = loading
-    ? 'Memeriksa...'
-    : defaultText;
+  button.textContent = loading ? 'Memeriksa...' : text;
 }
 
 function showError(element, message) {
+  if (!element) return;
   element.textContent = message;
   element.classList.remove('hidden');
 }
 
 function hideError(element) {
+  if (!element) return;
   element.textContent = '';
   element.classList.add('hidden');
 }

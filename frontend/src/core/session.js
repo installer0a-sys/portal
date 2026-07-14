@@ -1,64 +1,42 @@
 const TOKEN_KEY = 'portal.session.token';
-const AUTH_SNAPSHOT_KEY = 'portal.auth.snapshot.v1';
-
-function readJson(key) {
-  try {
-    const raw = sessionStorage.getItem(key);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
+const SNAPSHOT_KEY = 'portal.auth.snapshot.v1';
 
 export const sessionStore = {
   getToken() {
     return sessionStorage.getItem(TOKEN_KEY) || '';
   },
-
   setToken(token) {
-    if (!token) {
+    const value = String(token || '');
+    if (!value) {
       sessionStorage.removeItem(TOKEN_KEY);
       return;
     }
-    sessionStorage.setItem(TOKEN_KEY, token);
+    sessionStorage.setItem(TOKEN_KEY, value);
   },
-
   clearToken() {
     sessionStorage.removeItem(TOKEN_KEY);
   },
-
   getAuthSnapshot() {
-    return readJson(AUTH_SNAPSHOT_KEY);
+    try {
+      const raw = sessionStorage.getItem(SNAPSHOT_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
   },
-
   setAuthSnapshot(snapshot) {
-    if (!snapshot) {
-      sessionStorage.removeItem(AUTH_SNAPSHOT_KEY);
+    if (!snapshot || typeof snapshot !== 'object') {
+      sessionStorage.removeItem(SNAPSHOT_KEY);
       return;
     }
     sessionStorage.setItem(
-      AUTH_SNAPSHOT_KEY,
+      SNAPSHOT_KEY,
       JSON.stringify({ ...snapshot, savedAt: Date.now() })
     );
   },
-
   clearAuthSnapshot() {
-    sessionStorage.removeItem(AUTH_SNAPSHOT_KEY);
+    sessionStorage.removeItem(SNAPSHOT_KEY);
   },
-
-  setSession(token, profile) {
-    this.setToken(token);
-    this.setAuthSnapshot(profile);
-  },
-
-  getProfile() {
-    return this.getAuthSnapshot();
-  },
-
-  updateProfile(profile) {
-    this.setAuthSnapshot(profile);
-  },
-
   clearRuntimeSession() {
     this.clearToken();
     this.clearAuthSnapshot();
