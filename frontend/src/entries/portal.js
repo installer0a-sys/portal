@@ -3,8 +3,13 @@ import '../styles/app.css';
 import { CONFIG } from '../core/config.js';
 import { registerPwa } from '../core/pwa.js';
 import { router } from '../core/router.js';
-import { restoreSession, logout } from '../auth/auth.js';
-import { renderLoginView } from '../auth/login-view.js';
+import {
+  restoreSession,
+  logout
+} from '../auth/auth.js';
+import {
+  renderLoginView
+} from '../auth/login-view.js';
 import { toast } from '../core/toast.js';
 import { store } from '../core/store.js';
 import { logger } from '../core/logger.js';
@@ -12,6 +17,12 @@ import {
   getPortalRole,
   getAppRole
 } from '../core/access.js';
+import {
+  appRegistry
+} from '../apps/registry.js';
+import {
+  portalAppManifests
+} from '../apps/manifests.js';
 
 const root =
   document.querySelector('#app');
@@ -20,18 +31,63 @@ let activeSession = null;
 let pwaRegistration = null;
 let shellAbortController = null;
 
+appRegistry.registerMany(
+  portalAppManifests
+);
+
+function getDefaultRoute() {
+  const first =
+    appRegistry.list({
+      menuOnly: true
+    })[0];
+
+  return first?.route ||
+    'dashboard';
+}
+
+function getRouteFromHash() {
+  const route =
+    location.hash
+      .replace(/^#/, '')
+      .trim();
+
+  return appRegistry.getByRoute(route)
+    ? route
+    : getDefaultRoute();
+}
+
+function renderMenuItems() {
+  return appRegistry
+    .list({
+      menuOnly: true
+    })
+    .map(
+      (manifest) => `
+        <button
+          data-route="${escapeHtml(
+            manifest.route
+          )}"
+          data-app-id="${escapeHtml(
+            manifest.id
+          )}"
+          type="button"
+          class="app-button-secondary w-full justify-start"
+        >
+          ${escapeHtml(
+            manifest.shortTitle
+          )}
+        </button>
+      `
+    )
+    .join('');
+}
+
 function renderPortalShell(session) {
   const username =
     session?.user?.username ||
     session?.user?.name ||
     session?.profile?.user?.username ||
     'User';
-
-  const portalRole =
-    getPortalRole(session);
-
-  const appARole =
-    getAppRole(session, 'appA');
 
   root.innerHTML = `
     <div class="min-h-screen bg-slate-100 lg:grid lg:grid-cols-[260px_1fr]">
@@ -66,21 +122,7 @@ function renderPortalShell(session) {
         </div>
 
         <nav class="space-y-2">
-          <button
-            data-route="dashboard"
-            type="button"
-            class="app-button-secondary w-full justify-start"
-          >
-            Dashboard
-          </button>
-
-          <button
-            data-route="appA"
-            type="button"
-            class="app-button-secondary w-full justify-start"
-          >
-            App A
-          </button>
+          ${renderMenuItems()}
         </nav>
 
         <div class="mt-6 rounded-2xl bg-slate-50 p-4 text-sm">
@@ -95,7 +137,9 @@ function renderPortalShell(session) {
               </span>
 
               <strong>
-                ${escapeHtml(portalRole)}
+                ${escapeHtml(
+                  getPortalRole(session)
+                )}
               </strong>
             </div>
 
@@ -105,7 +149,12 @@ function renderPortalShell(session) {
               </span>
 
               <strong>
-                ${escapeHtml(appARole)}
+                ${escapeHtml(
+                  getAppRole(
+                    session,
+                    'appA'
+                  )
+                )}
               </strong>
             </div>
           </div>
@@ -133,7 +182,9 @@ function renderPortalShell(session) {
                 id="current-route-label"
                 class="truncate text-xs text-slate-500"
               >
-                Dashboard
+                ${escapeHtml(
+                  getDefaultRoute()
+                )}
               </p>
             </div>
 
@@ -179,12 +230,6 @@ function renderPortalShell(session) {
   `;
 }
 
-function getRoute() {
-  return location.hash === '#appA'
-    ? 'appA'
-    : 'dashboard';
-}
-
 function setSidebar(open) {
   document
     .querySelector('#sidebar')
@@ -194,7 +239,9 @@ function setSidebar(open) {
     );
 
   document
-    .querySelector('#sidebar-backdrop')
+    .querySelector(
+      '#sidebar-backdrop'
+    )
     ?.classList.toggle(
       'hidden',
       !open
@@ -211,10 +258,13 @@ function updateNetworkStatus() {
     return;
   }
 
-  const online = navigator.onLine;
+  const online =
+    navigator.onLine;
 
   element.textContent =
-    online ? 'Online' : 'Offline';
+    online
+      ? 'Online'
+      : 'Offline';
 
   element.className = online
     ? 'hidden rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 sm:inline-flex'
@@ -222,6 +272,11 @@ function updateNetworkStatus() {
 }
 
 function updateRouteUI(route) {
+  const manifest =
+    appRegistry.getByRoute(
+      route
+    );
+
   const label =
     document.querySelector(
       '#current-route-label'
@@ -229,9 +284,8 @@ function updateRouteUI(route) {
 
   if (label) {
     label.textContent =
-      route === 'appA'
-        ? 'App A'
-        : 'Dashboard';
+      manifest?.title ||
+      route;
   }
 
   document
@@ -244,38 +298,48 @@ function updateRouteUI(route) {
     });
 }
 
-function createNavigator(container) {
-  router.register(
-    'dashboard',
-    () => import(
-      '../apps/dashboard/index.js'
-    )
-  );
+function registerRoutes() {
+  appRegistry
+    .list()
+    .forEach((manifest) => {
+      router.register(
+        manifest.route,
+        manifest.loader
+      );
+    });
+}
 
-  router.register(
-    'appA',
-    () => import(
-      '../apps/app-a/index.js'
-    )
-  );
+function createNavigator(container) {
+  registerRoutes();
 
   return async (
     route,
     options = {}
   ) => {
-    const safeRoute =
-      route === 'appA'
-        ? 'appA'
-        : 'dashboard';
+    const manifest =
+      appRegistry.getByRoute(
+        route
+      );
 
-    updateRouteUI(safeRoute);
+    const safeRoute =
+      manifest?.route ||
+      getDefaultRoute();
+
+    updateRouteUI(
+      safeRoute
+    );
 
     await router.navigate(
       safeRoute,
       {
         container,
         mode: 'portal',
-        session: activeSession,
+        session:
+          activeSession,
+        manifest:
+          appRegistry.getByRoute(
+            safeRoute
+          ),
         historyMode:
           options.historyMode ||
           'push'
@@ -312,7 +376,9 @@ function bindPortalEvents(navigate) {
     );
 
   document
-    .querySelector('#sidebar-backdrop')
+    .querySelector(
+      '#sidebar-backdrop'
+    )
     ?.addEventListener(
       'click',
       () => setSidebar(false),
@@ -320,7 +386,9 @@ function bindPortalEvents(navigate) {
     );
 
   document
-    .querySelectorAll('[data-route]')
+    .querySelectorAll(
+      '[data-route]'
+    )
     .forEach((button) => {
       button.addEventListener(
         'click',
@@ -332,7 +400,9 @@ function bindPortalEvents(navigate) {
     });
 
   document
-    .querySelector('#open-core-test')
+    .querySelector(
+      '#open-core-test'
+    )
     ?.addEventListener(
       'click',
       async () => {
@@ -347,7 +417,8 @@ function bindPortalEvents(navigate) {
           );
 
         modal.open({
-          title: 'Core Diagnostics',
+          title:
+            'Core Diagnostics',
           content: `
             <pre class="max-h-[65vh] overflow-auto rounded-xl bg-slate-950 p-4 text-xs leading-5 text-slate-100">${escapeHtml(
               JSON.stringify(
@@ -364,7 +435,9 @@ function bindPortalEvents(navigate) {
     );
 
   document
-    .querySelector('#check-update')
+    .querySelector(
+      '#check-update'
+    )
     ?.addEventListener(
       'click',
       async () => {
@@ -385,7 +458,9 @@ function bindPortalEvents(navigate) {
     );
 
   document
-    .querySelector('#logout-button')
+    .querySelector(
+      '#logout-button'
+    )
     ?.addEventListener(
       'click',
       async () => {
@@ -411,7 +486,8 @@ function bindPortalEvents(navigate) {
   window.addEventListener(
     'hashchange',
     () => {
-      const route = getRoute();
+      const route =
+        getRouteFromHash();
 
       if (
         store.getState().route !== route
@@ -447,11 +523,38 @@ async function showAuthenticatedPortal(
   updateNetworkStatus();
 
   await navigate(
-    getRoute(),
+    getRouteFromHash(),
     {
       historyMode: 'replace'
     }
   );
+
+  appRegistry
+    .list()
+    .filter(
+      (manifest) =>
+        manifest.route !==
+        getRouteFromHash()
+    )
+    .forEach(
+      (manifest) => {
+        const preload = () =>
+          manifest.loader();
+
+        if (
+          'requestIdleCallback' in window
+        ) {
+          window.requestIdleCallback(
+            preload
+          );
+        } else {
+          window.setTimeout(
+            preload,
+            1000
+          );
+        }
+      }
+    );
 }
 
 function showLogin() {
@@ -461,15 +564,18 @@ function showLogin() {
   renderLoginView(
     root,
     {
-      title: 'Masuk ke Portal',
+      title:
+        'Masuk ke Portal',
       subtitle:
         'Gunakan username dan password Portal.',
-      submitText: 'Masuk',
-      onSuccess: async (session) => {
-        await showAuthenticatedPortal(
-          session
-        );
-      }
+      submitText:
+        'Masuk',
+      onSuccess:
+        async (session) => {
+          await showAuthenticatedPortal(
+            session
+          );
+        }
     }
   );
 }
@@ -498,7 +604,8 @@ async function startPortal() {
     logger.warn(
       'Portal session restore failed',
       {
-        message: error.message
+        message:
+          error.message
       }
     );
   }
@@ -522,12 +629,14 @@ async function startPwa() {
       await registerPwa();
 
     pwaRegistration =
-      result?.registration || null;
+      result?.registration ||
+      null;
   } catch (error) {
     logger.warn(
       'PWA registration failed',
       {
-        message: error.message
+        message:
+          error.message
       }
     );
   }
@@ -539,7 +648,10 @@ function escapeHtml(value) {
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
+    .replaceAll(
+      "'",
+      '&#039;'
+    );
 }
 
 startPwa();

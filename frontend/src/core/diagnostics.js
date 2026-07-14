@@ -10,20 +10,33 @@ import {
   loadingManager
 } from './loading.js';
 import { toast } from './toast.js';
+import {
+  appRegistry
+} from '../apps/registry.js';
+import {
+  Portal
+} from '../sdk/portal-sdk.js';
 
-const startedAt = performance.now();
+const startedAt =
+  performance.now();
 
 export const diagnostics = {
   snapshot() {
-    const state = store.getState();
+    const state =
+      store.getState();
 
     return {
-      timestamp: new Date().toISOString(),
-      uptimeMs: Math.round(
-        performance.now() - startedAt
-      ),
-      route: state.route,
-      networkOnline: navigator.onLine,
+      timestamp:
+        new Date().toISOString(),
+      uptimeMs:
+        Math.round(
+          performance.now() -
+          startedAt
+        ),
+      route:
+        state.route,
+      networkOnline:
+        navigator.onLine,
       pendingRequests:
         state.pendingRequests,
       lastError:
@@ -35,8 +48,10 @@ export const diagnostics = {
       userAgent:
         navigator.userAgent,
       viewport: {
-        width: window.innerWidth,
-        height: window.innerHeight
+        width:
+          window.innerWidth,
+        height:
+          window.innerHeight
       },
       memory:
         performance.memory
@@ -49,6 +64,10 @@ export const diagnostics = {
                 performance.memory.jsHeapSizeLimit
             }
           : null,
+      sdk:
+        Portal.snapshot(),
+      registry:
+        appRegistry.snapshot(),
       lifecycle:
         lifecycleManager.snapshot(),
       queue:

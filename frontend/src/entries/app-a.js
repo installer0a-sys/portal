@@ -1,6 +1,8 @@
 import '../styles/app.css';
 
-import { registerPwa } from '../core/pwa.js';
+import {
+  registerPwa
+} from '../core/pwa.js';
 import {
   restoreSession,
   logout
@@ -11,12 +13,24 @@ import {
 import {
   lifecycleManager
 } from '../core/lifecycle.js';
-import { logger } from '../core/logger.js';
+import {
+  appRegistry
+} from '../apps/registry.js';
+import {
+  appAManifest
+} from '../apps/app-a/manifest.js';
+import {
+  logger
+} from '../core/logger.js';
 
 const root =
   document.querySelector('#app');
 
 let shellAbortController = null;
+
+appRegistry.register(
+  appAManifest
+);
 
 function renderShell(session) {
   const username =
@@ -34,17 +48,19 @@ function renderShell(session) {
             </p>
 
             <h1 class="font-bold text-slate-900">
-              App A
+              ${escapeHtml(
+                appAManifest.title
+              )}
             </h1>
           </div>
 
           <div class="flex items-center gap-2">
             <span class="hidden text-sm text-slate-600 sm:inline">
-              ${username}
+              ${escapeHtml(username)}
             </span>
 
             <button
-              data-app-a-logout
+              data-app-logout
               type="button"
               class="app-button-secondary"
             >
@@ -66,12 +82,13 @@ async function showApp(session) {
   renderShell(session);
 
   shellAbortController?.abort();
+
   shellAbortController =
     new AbortController();
 
   document
     .querySelector(
-      '[data-app-a-logout]'
+      '[data-app-logout]'
     )
     ?.addEventListener(
       'click',
@@ -91,16 +108,20 @@ async function showApp(session) {
     );
 
   await lifecycleManager.activate({
-    name: 'appA-standalone',
-    loader: () =>
-      import('../apps/app-a/index.js'),
+    name:
+      `${appAManifest.id}-standalone`,
+    loader:
+      appAManifest.loader,
     container:
       document.querySelector(
         '#standalone-content'
       ),
     context: {
-      mode: 'standalone',
-      session
+      mode:
+        'standalone',
+      session,
+      manifest:
+        appAManifest
     }
   });
 }
@@ -112,18 +133,23 @@ function showLogin() {
   renderLoginView(
     root,
     {
-      title: 'Masuk ke App A',
+      title:
+        `Masuk ke ${appAManifest.title}`,
       subtitle:
-        'Login langsung ke App A tanpa memuat Portal.',
-      submitText: 'Masuk',
-      onSuccess: async (session) => {
-        await showApp(session);
-      }
+        `Login langsung ke ${appAManifest.title} tanpa memuat Portal.`,
+      submitText:
+        'Masuk',
+      onSuccess:
+        async (session) => {
+          await showApp(
+            session
+          );
+        }
     }
   );
 }
 
-async function startAppA() {
+async function startApp() {
   let session = null;
 
   try {
@@ -131,9 +157,12 @@ async function startAppA() {
       await restoreSession();
   } catch (error) {
     logger.warn(
-      'App A session restore failed',
+      'Standalone session restore failed',
       {
-        message: error.message
+        appId:
+          appAManifest.id,
+        message:
+          error.message
       }
     );
   }
@@ -149,5 +178,17 @@ async function startAppA() {
   await showApp(session);
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll(
+      "'",
+      '&#039;'
+    );
+}
+
 registerPwa().catch(() => {});
-startAppA();
+startApp();
