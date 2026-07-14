@@ -19,9 +19,13 @@ import {
 import {
   permissionEngine
 } from '../core/permission.js';
+import {
+  cacheEngine
+} from '../core/cache.js';
 
 const sdkState = {
-  apps: new Map(),
+  apps:
+    new Map(),
   startedAt:
     new Date().toISOString()
 };
@@ -101,7 +105,8 @@ export function defineApp(
   logger.info(
     'SDK app defined',
     {
-      appId: app.id
+      appId:
+        app.id
     }
   );
 
@@ -109,7 +114,8 @@ export function defineApp(
 }
 
 export const Portal = {
-  version: '0.3.6',
+  version:
+    '0.3.7',
 
   defineApp,
 
@@ -117,6 +123,8 @@ export const Portal = {
     appRegistry,
   permission:
     permissionEngine,
+  cache:
+    cacheEngine,
   router,
   lifecycle:
     lifecycleManager,
@@ -141,14 +149,17 @@ export const Portal = {
         ],
       manifestCount:
         appRegistry.list({
-          enabledOnly: false
+          enabledOnly:
+            false
         }).length
     };
   }
 };
 
 if (
-  typeof window !== 'undefined'
+  typeof window !==
+  'undefined'
 ) {
-  window.Portal = Portal;
+  window.Portal =
+    Portal;
 }

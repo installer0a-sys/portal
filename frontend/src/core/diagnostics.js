@@ -19,6 +19,9 @@ import {
 import {
   permissionEngine
 } from './permission.js';
+import {
+  cacheEngine
+} from './cache.js';
 
 const startedAt =
   performance.now();
@@ -82,6 +85,8 @@ export const diagnostics = {
         permissionEngine.snapshot(
           session
         ),
+      cache:
+        cacheEngine.snapshot(),
       lifecycle:
         lifecycleManager.snapshot(),
       queue:
