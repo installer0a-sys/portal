@@ -1,5 +1,8 @@
 import { store } from './store.js';
 import { logger } from './logger.js';
+import {
+  lifecycleManager
+} from './lifecycle.js';
 
 const startedAt = performance.now();
 
@@ -9,14 +12,21 @@ export const diagnostics = {
 
     return {
       timestamp: new Date().toISOString(),
-      uptimeMs: Math.round(performance.now() - startedAt),
+      uptimeMs: Math.round(
+        performance.now() - startedAt
+      ),
       route: state.route,
       networkOnline: navigator.onLine,
-      pendingRequests: state.pendingRequests,
-      lastError: state.lastError,
-      frontendVersion: state.appVersion,
-      serviceWorkerSupported: 'serviceWorker' in navigator,
-      userAgent: navigator.userAgent,
+      pendingRequests:
+        state.pendingRequests,
+      lastError:
+        state.lastError,
+      frontendVersion:
+        state.appVersion,
+      serviceWorkerSupported:
+        'serviceWorker' in navigator,
+      userAgent:
+        navigator.userAgent,
       viewport: {
         width: window.innerWidth,
         height: window.innerHeight
@@ -24,12 +34,18 @@ export const diagnostics = {
       memory:
         performance.memory
           ? {
-              usedJsHeapSize: performance.memory.usedJSHeapSize,
-              totalJsHeapSize: performance.memory.totalJSHeapSize,
-              jsHeapSizeLimit: performance.memory.jsHeapSizeLimit
+              usedJsHeapSize:
+                performance.memory.usedJSHeapSize,
+              totalJsHeapSize:
+                performance.memory.totalJSHeapSize,
+              jsHeapSizeLimit:
+                performance.memory.jsHeapSizeLimit
             }
           : null,
-      logs: logger.getLogs()
+      lifecycle:
+        lifecycleManager.snapshot(),
+      logs:
+        logger.getLogs()
     };
   }
 };

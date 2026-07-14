@@ -1,71 +1,93 @@
 import { store } from './store.js';
 import { logger } from './logger.js';
+import {
+  lifecycleManager
+} from './lifecycle.js';
 
 const routes = new Map();
-let activeRoute = null;
-let activeModule = null;
 
 export const router = {
   register(name, loader) {
+    if (!name || typeof loader !== 'function') {
+      throw new Error(
+        'Route name dan loader wajib tersedia.'
+      );
+    }
+
     routes.set(name, loader);
   },
 
-  async navigate(name, context = {}) {
+  has(name) {
+    return routes.has(name);
+  },
+
+  async navigate(
+    name,
+    context = {}
+  ) {
     const loader = routes.get(name);
 
     if (!loader) {
-      throw new Error(`Route tidak ditemukan: ${name}`);
+      throw new Error(
+        `Route tidak ditemukan: ${name}`
+      );
     }
 
-    if (
-      activeRoute === name &&
-      activeModule &&
-      typeof activeModule.refresh === 'function'
-    ) {
-      await activeModule.refresh(context);
-      return;
-    }
-
-    if (
-      activeModule &&
-      typeof activeModule.unmount === 'function'
-    ) {
-      await activeModule.unmount();
-    }
-
-    const loaded = await loader();
-
-    if (!loaded || typeof loaded.mount !== 'function') {
-      throw new Error(`Module ${name} tidak memiliki mount().`);
-    }
-
-    activeRoute = name;
-    activeModule = loaded;
-
-    store.setState({ route: name });
-
-    await loaded.mount(context.container, {
-      ...context,
-      navigate: (target, options = {}) =>
-        this.navigate(target, {
-          ...context,
-          ...options
-        })
+    await lifecycleManager.activate({
+      name,
+      loader,
+      container: context.container,
+      context: {
+        ...context,
+        navigate: (
+          target,
+          options = {}
+        ) =>
+          this.navigate(target, {
+            ...context,
+            ...options
+          })
+      }
     });
 
-    const mode = context.historyMode || 'push';
-    const hash = `#${name}`;
+    store.setState({
+      route: name
+    });
 
-    if (mode === 'replace') {
-      history.replaceState({}, '', hash);
-    } else if (mode === 'push' && location.hash !== hash) {
-      history.pushState({}, '', hash);
+    const historyMode =
+      context.historyMode || 'push';
+
+    const nextHash = `#${name}`;
+
+    if (historyMode === 'replace') {
+      window.history.replaceState(
+        {},
+        '',
+        nextHash
+      );
+    } else if (
+      historyMode === 'push' &&
+      window.location.hash !== nextHash
+    ) {
+      window.history.pushState(
+        {},
+        '',
+        nextHash
+      );
     }
 
-    logger.info('Route changed', { route: name });
+    logger.info('Route changed', {
+      route: name
+    });
+  },
+
+  async stop() {
+    await lifecycleManager.deactivate(
+      'router-stop'
+    );
   },
 
   getCurrentRoute() {
-    return activeRoute;
+    return store.getState().route;
   }
 };
