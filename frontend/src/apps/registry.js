@@ -1,80 +1,51 @@
 import { logger } from '../core/logger.js';
+import {
+  normalizeManifest,
+  validateManifestCollection
+} from './manifest-schema.js';
 
 const registry = new Map();
+const routeIndex = new Map();
 
-function validateManifest(manifest) {
-  if (!manifest || typeof manifest !== 'object') {
-    throw new Error('Manifest aplikasi tidak valid.');
-  }
+function addToIndexes(manifest) {
+  registry.set(
+    manifest.id,
+    manifest
+  );
 
-  const id = String(manifest.id || '').trim();
-
-  if (!id) {
-    throw new Error('Manifest aplikasi wajib memiliki id.');
-  }
-
-  if (!manifest.title) {
-    throw new Error(
-      `Manifest ${id} wajib memiliki title.`
-    );
-  }
-
-  if (typeof manifest.loader !== 'function') {
-    throw new Error(
-      `Manifest ${id} wajib memiliki loader.`
-    );
-  }
-
-  return {
-    id,
-    title: String(manifest.title),
-    shortTitle: String(
-      manifest.shortTitle ||
-      manifest.title
-    ),
-    description: String(
-      manifest.description || ''
-    ),
-    icon: String(
-      manifest.icon || 'app'
-    ),
-    version: String(
-      manifest.version || '0.1.0'
-    ),
-    route: String(
-      manifest.route || id
-    ),
-    order: Number(
-      manifest.order || 100
-    ),
-    menu: manifest.menu !== false,
-    standalone:
-      manifest.standalone === true,
-    enabled:
-      manifest.enabled !== false,
-    requiredPermission: String(
-      manifest.requiredPermission || ''
-    ),
-    loader: manifest.loader
-  };
+  routeIndex.set(
+    manifest.route,
+    manifest.id
+  );
 }
 
 export const appRegistry = {
   register(manifest) {
     const normalized =
-      validateManifest(manifest);
+      normalizeManifest(manifest);
 
-    registry.set(
-      normalized.id,
-      normalized
-    );
+    const existingByRoute =
+      routeIndex.get(normalized.route);
+
+    if (
+      existingByRoute &&
+      existingByRoute !== normalized.id
+    ) {
+      throw new Error(
+        `Route ${normalized.route} sudah dipakai oleh ${existingByRoute}.`
+      );
+    }
+
+    addToIndexes(normalized);
 
     logger.info(
       'App manifest registered',
       {
         appId: normalized.id,
         route: normalized.route,
-        version: normalized.version
+        version: normalized.version,
+        schemaVersion:
+          normalized.schemaVersion
       }
     );
 
@@ -82,10 +53,31 @@ export const appRegistry = {
   },
 
   registerMany(manifests = []) {
-    return manifests.map(
-      (manifest) =>
-        this.register(manifest)
+    const normalized =
+      validateManifestCollection(
+        manifests
+      );
+
+    normalized.forEach(
+      addToIndexes
     );
+
+    normalized.forEach(
+      (manifest) => {
+        logger.info(
+          'App manifest registered',
+          {
+            appId: manifest.id,
+            route: manifest.route,
+            version: manifest.version,
+            schemaVersion:
+              manifest.schemaVersion
+          }
+        );
+      }
+    );
+
+    return normalized;
   },
 
   get(id) {
@@ -95,33 +87,49 @@ export const appRegistry = {
   },
 
   getByRoute(route) {
-    const value =
-      String(route || '');
+    const id =
+      routeIndex.get(
+        String(route || '')
+      );
 
-    return (
-      [...registry.values()].find(
-        (item) =>
-          item.route === value
-      ) || null
+    return id
+      ? this.get(id)
+      : null;
+  },
+
+  has(id) {
+    return registry.has(
+      String(id || '')
     );
   },
 
   list({
     menuOnly = false,
-    enabledOnly = true
+    enabledOnly = true,
+    category = ''
   } = {}) {
+    const categoryText =
+      String(category || '').trim();
+
     return [...registry.values()]
-      .filter((item) => {
+      .filter((manifest) => {
         if (
           menuOnly &&
-          !item.menu
+          !manifest.menu
         ) {
           return false;
         }
 
         if (
           enabledOnly &&
-          !item.enabled
+          !manifest.enabled
+        ) {
+          return false;
+        }
+
+        if (
+          categoryText &&
+          manifest.category !== categoryText
         ) {
           return false;
         }
@@ -130,32 +138,149 @@ export const appRegistry = {
       })
       .sort(
         (a, b) =>
+          a.order - b.order ||
+          a.title.localeCompare(
+            b.title,
+            'id'
+          )
+      );
+  },
+
+  categories() {
+    return [
+      ...new Set(
+        this.list({
+          enabledOnly: false
+        })
+          .map(
+            (manifest) =>
+              manifest.category
+          )
+          .filter(Boolean)
+      )
+    ];
+  },
+
+  getInternalMenu(
+    appId,
+    {
+      enabledOnly = true
+    } = {}
+  ) {
+    const manifest =
+      this.get(appId);
+
+    if (!manifest) {
+      return [];
+    }
+
+    return manifest.internalMenu
+      .filter(
+        (item) =>
+          !enabledOnly ||
+          item.enabled
+      )
+      .sort(
+        (a, b) =>
           a.order - b.order
       );
   },
 
+  getDefaultInternalRoute(appId) {
+    const items =
+      this.getInternalMenu(appId);
+
+    const preferred =
+      items.find(
+        (item) => item.default
+      );
+
+    return (
+      preferred?.route ||
+      items[0]?.route ||
+      ''
+    );
+  },
+
+  unregister(id) {
+    const manifest =
+      this.get(id);
+
+    if (!manifest) {
+      return false;
+    }
+
+    registry.delete(manifest.id);
+    routeIndex.delete(
+      manifest.route
+    );
+
+    logger.info(
+      'App manifest unregistered',
+      {
+        appId: manifest.id
+      }
+    );
+
+    return true;
+  },
+
   clear() {
     registry.clear();
+    routeIndex.clear();
   },
 
   snapshot() {
     return {
       count: registry.size,
-      apps: this.list({
-        enabledOnly: false
-      }).map((item) => ({
-        id: item.id,
-        title: item.title,
-        route: item.route,
-        version: item.version,
-        menu: item.menu,
-        standalone:
-          item.standalone,
-        enabled:
-          item.enabled,
-        requiredPermission:
-          item.requiredPermission
-      }))
+      categories:
+        this.categories(),
+      apps:
+        this.list({
+          enabledOnly: false
+        }).map((manifest) => ({
+          schemaVersion:
+            manifest.schemaVersion,
+          id:
+            manifest.id,
+          title:
+            manifest.title,
+          category:
+            manifest.category,
+          route:
+            manifest.route,
+          version:
+            manifest.version,
+          menu:
+            manifest.menu,
+          enabled:
+            manifest.enabled,
+          requiredPermission:
+            manifest.requiredPermission,
+          tags:
+            manifest.tags,
+          standalone:
+            manifest.standalone,
+          capabilities:
+            manifest.capabilities,
+          internalMenu:
+            manifest.internalMenu.map(
+              (item) => ({
+                id:
+                  item.id,
+                title:
+                  item.title,
+                route:
+                  item.route,
+                enabled:
+                  item.enabled,
+                default:
+                  item.default,
+                requiredPermission:
+                  item.requiredPermission
+              })
+            )
+        }))
     };
   }
 };
