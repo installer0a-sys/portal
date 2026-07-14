@@ -29,6 +29,9 @@ import {
   eventBus
 } from './event-bus.js';
 import {
+  commandBus
+} from './command-bus.js';
+import {
   VERSION_INFO
 } from './version.js';
 
@@ -64,7 +67,7 @@ export const diagnostics = {
       lastError:
         state.lastError,
       frontendVersion:
-        '0.4.0',
+        '0.4.1',
       frontendBuild:
         VERSION_INFO.build,
       serviceWorkerSupported:
@@ -94,6 +97,8 @@ export const diagnostics = {
         updateManager.snapshot(),
       events:
         eventBus.snapshot(),
+      commands:
+        commandBus.snapshot(),
       registry:
         appRegistry.snapshot(),
       permission:

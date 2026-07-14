@@ -7,6 +7,9 @@ import {
 import {
   installEventBridge
 } from '../core/event-bridge.js';
+import {
+  installCommandBridge
+} from '../core/command-bridge.js';
 
 let installed = false;
 
@@ -57,10 +60,17 @@ function handleKeyboard(event) {
   if (key === 'u') {
     event.preventDefault();
 
-    Portal.update
-      .check({
-        notify: true
-      })
+    Portal.commands
+      .run(
+        'portal.update.check',
+        {
+          notify: true
+        },
+        {
+          source:
+            'keyboard'
+        }
+      )
       .catch(() => {});
   }
 }
@@ -104,10 +114,17 @@ function handleUpdateClick(
 
   trigger.disabled = true;
 
-  Portal.update
-    .check({
-      notify: true
-    })
+  Portal.commands
+    .run(
+      'portal.update.check',
+      {
+        notify: true
+      },
+      {
+        source:
+          'update-button'
+      }
+    )
     .finally(() => {
       trigger.disabled = false;
     });
@@ -121,6 +138,7 @@ export function installDevTools() {
   installed = true;
 
   installEventBridge();
+  installCommandBridge();
 
   document.addEventListener(
     'keydown',

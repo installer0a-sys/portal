@@ -29,6 +29,9 @@ import {
   eventBus
 } from '../core/event-bus.js';
 import {
+  commandBus
+} from '../core/command-bus.js';
+import {
   VERSION_INFO
 } from '../core/version.js';
 
@@ -123,7 +126,7 @@ export function defineApp(
 
 export const Portal = {
   version:
-    '0.4.0',
+    '0.4.1',
   build:
     VERSION_INFO.build,
 
@@ -139,6 +142,8 @@ export const Portal = {
     updateManager,
   events:
     eventBus,
+  commands:
+    commandBus,
   router,
   lifecycle:
     lifecycleManager,
