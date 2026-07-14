@@ -18,6 +18,9 @@ import {
   getAppRole
 } from '../core/access.js';
 import {
+  permissionEngine
+} from '../core/permission.js';
+import {
   appRegistry
 } from '../apps/registry.js';
 import {
@@ -35,14 +38,32 @@ appRegistry.registerMany(
   portalAppManifests
 );
 
-function getDefaultRoute() {
-  const first =
-    appRegistry.list({
-      menuOnly: true
-    })[0];
+function getVisibleManifests() {
+  return permissionEngine
+    .filterManifests(
+      activeSession,
+      appRegistry.list({
+        menuOnly: true
+      })
+    );
+}
 
-  return first?.route ||
-    'dashboard';
+function getDefaultRoute() {
+  const visible =
+    getVisibleManifests();
+
+  const dashboard =
+    visible.find(
+      (manifest) =>
+        manifest.id ===
+        'dashboard'
+    );
+
+  return (
+    dashboard?.route ||
+    visible[0]?.route ||
+    'dashboard'
+  );
 }
 
 function getRouteFromHash() {
@@ -51,16 +72,26 @@ function getRouteFromHash() {
       .replace(/^#/, '')
       .trim();
 
-  return appRegistry.getByRoute(route)
-    ? route
-    : getDefaultRoute();
+  const manifest =
+    appRegistry.getByRoute(
+      route
+    );
+
+  if (
+    manifest &&
+    permissionEngine.canAccessManifest(
+      activeSession,
+      manifest
+    )
+  ) {
+    return route;
+  }
+
+  return getDefaultRoute();
 }
 
 function renderMenuItems() {
-  return appRegistry
-    .list({
-      menuOnly: true
-    })
+  return getVisibleManifests()
     .map(
       (manifest) => `
         <button
@@ -321,8 +352,32 @@ function createNavigator(container) {
         route
       );
 
+    if (
+      !manifest ||
+      !permissionEngine.canAccessManifest(
+        activeSession,
+        manifest
+      )
+    ) {
+      toast.warning(
+        'Anda tidak memiliki akses ke aplikasi tersebut.',
+        {
+          key:
+            'permission-app-denied'
+        }
+      );
+
+      route =
+        getDefaultRoute();
+    }
+
+    const safeManifest =
+      appRegistry.getByRoute(
+        route
+      );
+
     const safeRoute =
-      manifest?.route ||
+      safeManifest?.route ||
       getDefaultRoute();
 
     updateRouteUI(
@@ -337,9 +392,14 @@ function createNavigator(container) {
         session:
           activeSession,
         manifest:
-          appRegistry.getByRoute(
-            safeRoute
-          ),
+          safeManifest,
+        internalMenu:
+          permissionEngine
+            .filterInternalMenu(
+              activeSession,
+              safeManifest?.internalMenu ||
+              []
+            ),
         historyMode:
           options.historyMode ||
           'push'
@@ -529,8 +589,7 @@ async function showAuthenticatedPortal(
     }
   );
 
-  appRegistry
-    .list()
+  getVisibleManifests()
     .filter(
       (manifest) =>
         manifest.route !==

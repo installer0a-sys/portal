@@ -16,6 +16,9 @@ import { logger } from '../core/logger.js';
 import {
   appRegistry
 } from '../apps/registry.js';
+import {
+  permissionEngine
+} from '../core/permission.js';
 
 const sdkState = {
   apps: new Map(),
@@ -106,12 +109,14 @@ export function defineApp(
 }
 
 export const Portal = {
-  version: '0.3.5',
+  version: '0.3.6',
 
   defineApp,
 
   registry:
     appRegistry,
+  permission:
+    permissionEngine,
   router,
   lifecycle:
     lifecycleManager,

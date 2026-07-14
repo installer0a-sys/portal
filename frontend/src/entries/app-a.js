@@ -14,6 +14,9 @@ import {
   lifecycleManager
 } from '../core/lifecycle.js';
 import {
+  permissionEngine
+} from '../core/permission.js';
+import {
   appRegistry
 } from '../apps/registry.js';
 import {
@@ -78,7 +81,56 @@ function renderShell(session) {
   `;
 }
 
+function renderAccessDenied() {
+  root.innerHTML = `
+    <div class="flex min-h-screen items-center justify-center bg-slate-100 p-4">
+      <section class="app-card w-full max-w-md">
+        <p class="text-sm font-semibold text-red-600">
+          Akses ditolak
+        </p>
+
+        <h1 class="mt-2 text-2xl font-bold text-slate-900">
+          Anda tidak memiliki akses ke ${escapeHtml(
+            appAManifest.title
+          )}
+        </h1>
+
+        <button
+          data-denied-logout
+          type="button"
+          class="app-button-primary mt-5"
+        >
+          Kembali ke Login
+        </button>
+      </section>
+    </div>
+  `;
+
+  document
+    .querySelector(
+      '[data-denied-logout]'
+    )
+    ?.addEventListener(
+      'click',
+      async () => {
+        await logout();
+        showLogin();
+      },
+      { once: true }
+    );
+}
+
 async function showApp(session) {
+  if (
+    !permissionEngine.canAccessManifest(
+      session,
+      appAManifest
+    )
+  ) {
+    renderAccessDenied();
+    return;
+  }
+
   renderShell(session);
 
   shellAbortController?.abort();
@@ -121,7 +173,19 @@ async function showApp(session) {
         'standalone',
       session,
       manifest:
-        appAManifest
+        appAManifest,
+      internalMenu:
+        permissionEngine
+          .filterInternalMenu(
+            session,
+            appAManifest.internalMenu
+          ),
+      initialInternalRoute:
+        permissionEngine
+          .firstAllowedInternalRoute(
+            session,
+            appAManifest
+          )
     }
   });
 }

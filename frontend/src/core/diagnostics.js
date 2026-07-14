@@ -16,6 +16,9 @@ import {
 import {
   Portal
 } from '../sdk/portal-sdk.js';
+import {
+  permissionEngine
+} from './permission.js';
 
 const startedAt =
   performance.now();
@@ -24,6 +27,13 @@ export const diagnostics = {
   snapshot() {
     const state =
       store.getState();
+
+    const session = {
+      user:
+        state.user || null,
+      access:
+        state.permissions || {}
+    };
 
     return {
       timestamp:
@@ -68,6 +78,10 @@ export const diagnostics = {
         Portal.snapshot(),
       registry:
         appRegistry.snapshot(),
+      permission:
+        permissionEngine.snapshot(
+          session
+        ),
       lifecycle:
         lifecycleManager.snapshot(),
       queue:
