@@ -1,36 +1,109 @@
 import { CONFIG } from './config.js';
+import { store } from './store.js';
+import { logger } from './logger.js';
 
 const pending = new Map();
 
-export async function callApi(action, payload = {}) {
-  if (CONFIG.apiUrl.includes('PASTE_')) {
-    return { ok: true, data: { demo: true, action }, message: 'Mode demo: API belum dikonfigurasi.' };
+function createRequestId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
   }
 
-  const key = `${action}:${JSON.stringify(payload)}`;
-  if (pending.has(key)) return pending.get(key);
-
-  const request = execute(action, payload).finally(() => pending.delete(key));
-  pending.set(key, request);
-  return request;
+  return `req_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
-async function execute(action, payload) {
+function createKey(action, payload) {
+  return `${action}:${JSON.stringify(payload || {})}`;
+}
+
+async function execute(action, payload = {}, options = {}) {
+  const timeoutMs = options.timeoutMs || CONFIG.requestTimeoutMs || 30000;
+  const requestId = createRequestId();
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), CONFIG.requestTimeoutMs);
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  store.setState({
+    pendingRequests: store.getState().pendingRequests + 1
+  });
+
+  const startedAt = performance.now();
 
   try {
     const response = await fetch(CONFIG.apiUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action, payload, requestId: crypto.randomUUID() }),
-      signal: controller.signal
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8'
+      },
+      body: JSON.stringify({ requestId, action, payload }),
+      signal: controller.signal,
+      redirect: 'follow'
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
     const result = await response.json();
-    if (!result.ok) throw new Error(result.message || 'API gagal.');
+    const durationMs = Math.round(performance.now() - startedAt);
+
+    logger.info('API request completed', {
+      action,
+      requestId,
+      durationMs,
+      ok: result.ok
+    });
+
+    if (!result.ok) {
+      throw new Error(result.message || 'Permintaan server gagal.');
+    }
+
     return result;
+  } catch (error) {
+    const message =
+      error.name === 'AbortError'
+        ? `Request timeout setelah ${timeoutMs} ms`
+        : error.message;
+
+    store.setState({
+      lastError: {
+        action,
+        requestId,
+        message,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+    logger.error('API request failed', {
+      action,
+      requestId,
+      message
+    });
+
+    throw new Error(message);
   } finally {
-    clearTimeout(timer);
+    window.clearTimeout(timer);
+
+    store.setState({
+      pendingRequests: Math.max(0, store.getState().pendingRequests - 1)
+    });
   }
+}
+
+export function callApi(action, payload = {}, options = {}) {
+  const key = createKey(action, payload);
+
+  if (options.deduplicate !== false && pending.has(key)) {
+    return pending.get(key);
+  }
+
+  const request = execute(action, payload, options).finally(() => {
+    pending.delete(key);
+  });
+
+  pending.set(key, request);
+  return request;
+}
+
+export function getPendingRequestCount() {
+  return pending.size;
 }

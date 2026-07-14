@@ -10,3 +10,6 @@ frontend/dist/
 
 *.log
 .DS_Store
+
+portal-core-patch.zip
+backup-before-core-patch/
