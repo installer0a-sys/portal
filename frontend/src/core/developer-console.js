@@ -650,12 +650,92 @@ function renderTabs() {
     .join('');
 }
 
-function render() {
+function getScrollableElements(container) {
+  if (!container) {
+    return [];
+  }
+
+  return [container, ...container.querySelectorAll('*')]
+    .filter((element) => {
+      const style = window.getComputedStyle(element);
+      const overflowY = style.overflowY;
+      const overflowX = style.overflowX;
+
+      return (
+        element.scrollHeight > element.clientHeight &&
+        ['auto', 'scroll'].includes(overflowY)
+      ) || (
+        element.scrollWidth > element.clientWidth &&
+        ['auto', 'scroll'].includes(overflowX)
+      );
+    });
+}
+
+function captureScrollState(container) {
+  return getScrollableElements(container).map((element, index) => ({
+    index,
+    top: element.scrollTop,
+    left: element.scrollLeft
+  }));
+}
+
+function restoreScrollState(container, state = []) {
+  const elements = getScrollableElements(container);
+
+  state.forEach((position) => {
+    const element = elements[position.index];
+
+    if (!element) {
+      return;
+    }
+
+    element.scrollTop = position.top;
+    element.scrollLeft = position.left;
+  });
+}
+
+function updateActiveTabStyles() {
+  root
+    ?.querySelectorAll('[data-dev-tab]')
+    .forEach((button) => {
+      const isActive = button.dataset.devTab === activeTab;
+
+      button.className = isActive
+        ? 'rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white'
+        : 'rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100';
+    });
+}
+
+function refreshContent({ preserveScroll = true } = {}) {
   if (!root) {
     return;
   }
 
-  const snapshot = diagnostics.snapshot();
+  const content = root.querySelector('[data-dev-content]');
+
+  if (!content) {
+    return;
+  }
+
+  const scrollState = preserveScroll
+    ? captureScrollState(content)
+    : [];
+
+  content.innerHTML = renderContent(diagnostics.snapshot());
+  updateActiveTabStyles();
+
+  if (preserveScroll) {
+    window.requestAnimationFrame(() => {
+      restoreScrollState(content, scrollState);
+    });
+  }
+}
+
+function renderShell() {
+  if (!root) {
+    return;
+  }
+
   const panel = root.querySelector('[data-dev-panel]');
 
   if (!panel) {
@@ -698,17 +778,16 @@ function render() {
         ${renderTabs()}
       </nav>
 
-      <main class="min-h-0 flex-1 overflow-auto p-4">
-        ${renderContent(snapshot)}
-      </main>
+      <main data-dev-content class="min-h-0 flex-1 overflow-auto p-4"></main>
 
       <footer class="border-t border-slate-200 bg-white px-4 py-2 text-xs text-slate-500">
-        Ctrl+Shift+D toggle · Ctrl+Shift+L logs · Ctrl+Shift+Q queue · Esc tutup
+        Data diperbarui otomatis tanpa mengubah posisi scroll · Ctrl+Shift+D toggle · Esc tutup
       </footer>
     </div>
   `;
 
   bindPanelEvents();
+  refreshContent({ preserveScroll: false });
 }
 
 function bindPanelEvents() {
@@ -716,16 +795,14 @@ function bindPanelEvents() {
     ?.querySelector('[data-dev-close]')
     ?.addEventListener(
       'click',
-      () => developerConsole.close(),
-      { once: true }
+      () => developerConsole.close()
     );
 
   root
     ?.querySelector('[data-dev-refresh]')
     ?.addEventListener(
       'click',
-      render,
-      { once: true }
+      () => refreshContent({ preserveScroll: true })
     );
 
   root
@@ -735,9 +812,8 @@ function bindPanelEvents() {
         'click',
         () => {
           activeTab = button.dataset.devTab || 'system';
-          render();
-        },
-        { once: true }
+          refreshContent({ preserveScroll: false });
+        }
       );
     });
 }
@@ -789,12 +865,12 @@ export const developerConsole = {
     element.classList.remove('hidden');
     document.documentElement.classList.add('overflow-hidden');
 
-    render();
+    renderShell();
 
     window.clearInterval(refreshTimer);
 
     refreshTimer = window.setInterval(
-      render,
+      () => refreshContent({ preserveScroll: true }),
       2500
     );
 

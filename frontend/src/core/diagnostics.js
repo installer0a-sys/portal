@@ -67,7 +67,7 @@ export const diagnostics = {
       lastError:
         state.lastError,
       frontendVersion:
-        '0.4.1',
+        '0.4.5',
       frontendBuild:
         VERSION_INFO.build,
       serviceWorkerSupported:

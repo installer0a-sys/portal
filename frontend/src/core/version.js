@@ -1,8 +1,8 @@
 export const VERSION_INFO = Object.freeze({
   app: 'portal-v3',
-  version: '0.3.9',
-  build: '2026.07.14.1',
-  releasedAt: '2026-07-14T00:00:00.000Z'
+  version: '0.4.5',
+  build: '2026.07.16.2',
+  releasedAt: '2026-07-16T00:00:00.000Z'
 });
 
 function parsePart(value) {
