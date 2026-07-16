@@ -7,7 +7,7 @@ export const dashboardManifest = {
     'Ringkasan Portal Azko Kudus Sudirman.',
   icon: 'dashboard',
   category: 'Portal',
-  version: '0.4.2',
+  version: '0.4.4',
   route: 'dashboard',
   order: 10,
   menu: true,
