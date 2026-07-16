@@ -24,10 +24,13 @@ export function createCrudApp({ id, title, dataset }) {
   let session = null;
   let state = { page: 1, pageSize: 20, query: '', status: '', includeDeleted: false, records: [], pagination: null, loading: false };
   let searchTimer = null;
+  let mountGeneration = 0;
+  let mounted = false;
 
   const can = (permission) => permissionEngine.can(session, `${id}.${permission}`);
 
   function renderShell(context) {
+    if (!root) return;
     root.innerHTML = `
       <section class="space-y-4">
         <article class="app-card">
@@ -123,6 +126,7 @@ export function createCrudApp({ id, title, dataset }) {
 
   function renderPagination() {
     const target = root?.querySelector('[data-pagination]');
+    if (!target) return;
     const page = state.pagination?.page || 1;
     const totalPages = state.pagination?.totalPages || 1;
     const total = state.pagination?.total || 0;
@@ -133,16 +137,30 @@ export function createCrudApp({ id, title, dataset }) {
   }
 
   async function load() {
-    state.loading = true; renderList();
+    const generation = mountGeneration;
+    if (!mounted || !root) return;
+
+    state.loading = true;
+    renderList();
+
     try {
       const result = await dataClient.list(dataset, state);
+
+      if (!mounted || !root || generation !== mountGeneration) return;
+
       state.records = result.data?.records || [];
       state.pagination = result.data?.pagination || null;
     } catch (error) {
+      if (!mounted || !root || generation !== mountGeneration) return;
+
       state.records = [];
       toast.error(error.message || 'Data gagal dimuat.');
     } finally {
-      state.loading = false; renderList(); renderPagination();
+      if (!mounted || !root || generation !== mountGeneration) return;
+
+      state.loading = false;
+      renderList();
+      renderPagination();
     }
   }
 
@@ -204,6 +222,8 @@ export function createCrudApp({ id, title, dataset }) {
   return defineApp({
     id,
     async mount(container, context = {}) {
+      mountGeneration += 1;
+      mounted = true;
       root = container; lifecycle = context.lifecycle; session = context.session;
       state = { page: 1, pageSize: 20, query: '', status: '', includeDeleted: false, records: [], pagination: null, loading: false };
       renderShell(context);
@@ -227,10 +247,23 @@ export function createCrudApp({ id, title, dataset }) {
       lifecycle?.listen(root.querySelector('[data-status]'), 'change', (event) => { state.status = event.target.value; state.page = 1; load(); });
       const deleted = root.querySelector('[data-deleted]');
       if (deleted) lifecycle?.listen(deleted, 'change', (event) => { state.includeDeleted = event.target.checked; state.page = 1; load(); });
-      lifecycle?.addCleanup(() => { clearTimeout(searchTimer); root = null; lifecycle = null; session = null; });
+      lifecycle?.addCleanup(() => {
+        mountGeneration += 1;
+        mounted = false;
+        clearTimeout(searchTimer);
+        root = null;
+        lifecycle = null;
+        session = null;
+      });
       await load();
     },
     async refresh() { if (root) await load(); },
-    async unmount() { if (root) root.innerHTML = ''; root = null; }
+    async unmount() {
+      mountGeneration += 1;
+      mounted = false;
+      clearTimeout(searchTimer);
+      if (root) root.innerHTML = '';
+      root = null;
+    }
   });
 }

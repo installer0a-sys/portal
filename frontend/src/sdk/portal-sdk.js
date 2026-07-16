@@ -126,7 +126,7 @@ export function defineApp(
 
 export const Portal = {
   version:
-    '0.4.5',
+    '0.4.6',
   build:
     VERSION_INFO.build,
 

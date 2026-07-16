@@ -7,7 +7,7 @@ export const appAManifest = {
     'Aplikasi pertama Portal V3.',
   icon: 'app',
   category: 'Operasional',
-  version: '0.4.5',
+  version: '0.4.6',
   route: 'appA',
   order: 20,
   menu: true,
