@@ -11,12 +11,16 @@ function login_(payload, requestId) {
 
     if (!userRecord || String(userRecord.data.STATUS) !== 'ACTIVE') {
       recordLoginFailure_(username);
-      throw new Error(genericError);
+      const invalidCredentials = new Error(genericError);
+      invalidCredentials.code = 'INVALID_CREDENTIALS';
+      throw invalidCredentials;
     }
 
     if (!verifyPassword_(password, userRecord.data.PASSWORD_SALT, userRecord.data.PASSWORD_HASH)) {
       recordLoginFailure_(username);
-      throw new Error(genericError);
+      const invalidCredentials = new Error(genericError);
+      invalidCredentials.code = 'INVALID_CREDENTIALS';
+      throw invalidCredentials;
     }
 
     // Upgrade otomatis hash lama setelah login pertama berhasil.

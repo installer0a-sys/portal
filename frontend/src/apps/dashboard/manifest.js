@@ -4,10 +4,10 @@ export const dashboardManifest = {
   title: 'Dashboard',
   shortTitle: 'Dashboard',
   description:
-    'Ringkasan Portal AZKO Kudus.',
+    'Ringkasan Portal Azko Kudus Sudirman.',
   icon: 'dashboard',
   category: 'Portal',
-  version: '0.1.0',
+  version: '0.4.2',
   route: 'dashboard',
   order: 10,
   menu: true,

@@ -32,6 +32,15 @@ function getUserAccess_(user) {
     });
   }
 
+  if (String(user.PORTAL_ROLE || '').toUpperCase() === 'ADMIN' && permissionSheet && permissionSheet.getLastRow() >= 2) {
+    const headers = getSheetHeaders_(permissionSheet);
+    const rows = permissionSheet.getRange(2, 1, permissionSheet.getLastRow() - 1, headers.length).getValues();
+    rows.forEach(function(row) {
+      const item = rowToObject_(headers, row);
+      if (item.PERMISSION) permissions.push(String(item.PERMISSION));
+    });
+  }
+
   const uniquePermissions = Array.from(new Set(permissions.filter(Boolean))).sort();
   return {
     portalRole: String(user.PORTAL_ROLE || 'USER').toUpperCase(),

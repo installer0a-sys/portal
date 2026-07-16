@@ -65,7 +65,11 @@ function seedConfig_(ss) {
 function seedApps_(ss) {
   upsertRowsByKey_(ss.getSheetByName('APPS'), 'APP_ID', [
     { APP_ID: 'portal', APP_NAME: 'Portal Utama', ENABLED: true, DIRECT_PWA: true, SORT_ORDER: 1, DESCRIPTION: 'Shell utama portal' },
-    { APP_ID: 'appA', APP_NAME: 'App A', ENABLED: true, DIRECT_PWA: true, SORT_ORDER: 10, DESCRIPTION: 'Aplikasi A' }
+    { APP_ID: 'appA', APP_NAME: 'App A', ENABLED: true, DIRECT_PWA: true, SORT_ORDER: 10, DESCRIPTION: 'Aplikasi A' },
+    { APP_ID: 'appB', APP_NAME: 'App B', ENABLED: true, DIRECT_PWA: false, SORT_ORDER: 20, DESCRIPTION: 'Aplikasi B' },
+    { APP_ID: 'appC', APP_NAME: 'App C', ENABLED: true, DIRECT_PWA: false, SORT_ORDER: 30, DESCRIPTION: 'Aplikasi C' },
+    { APP_ID: 'appD', APP_NAME: 'App D', ENABLED: true, DIRECT_PWA: false, SORT_ORDER: 40, DESCRIPTION: 'Aplikasi D' },
+    { APP_ID: 'appE', APP_NAME: 'App E', ENABLED: true, DIRECT_PWA: false, SORT_ORDER: 50, DESCRIPTION: 'Aplikasi E' }
   ]);
 }
 
@@ -87,7 +91,19 @@ function seedPermissions_(ss) {
     { APP_ID: 'portal', ROLE: 'USER', PERMISSION: 'portal.access', DESCRIPTION: 'Akses portal' },
     { APP_ID: 'appA', ROLE: 'MANAGER', PERMISSION: 'appA.access', DESCRIPTION: 'Akses App A' },
     { APP_ID: 'appA', ROLE: 'MANAGER', PERMISSION: 'appA.manage', DESCRIPTION: 'Kelola App A' },
-    { APP_ID: 'appA', ROLE: 'VIEWER', PERMISSION: 'appA.access', DESCRIPTION: 'Lihat App A' }
+    { APP_ID: 'appA', ROLE: 'VIEWER', PERMISSION: 'appA.access', DESCRIPTION: 'Lihat App A' },
+    { APP_ID: 'appB', ROLE: 'MANAGER', PERMISSION: 'appB.access', DESCRIPTION: 'Akses App B' },
+    { APP_ID: 'appB', ROLE: 'MANAGER', PERMISSION: 'appB.manage', DESCRIPTION: 'Kelola App B' },
+    { APP_ID: 'appB', ROLE: 'VIEWER', PERMISSION: 'appB.access', DESCRIPTION: 'Lihat App B' },
+    { APP_ID: 'appC', ROLE: 'MANAGER', PERMISSION: 'appC.access', DESCRIPTION: 'Akses App C' },
+    { APP_ID: 'appC', ROLE: 'MANAGER', PERMISSION: 'appC.manage', DESCRIPTION: 'Kelola App C' },
+    { APP_ID: 'appC', ROLE: 'VIEWER', PERMISSION: 'appC.access', DESCRIPTION: 'Lihat App C' },
+    { APP_ID: 'appD', ROLE: 'MANAGER', PERMISSION: 'appD.access', DESCRIPTION: 'Akses App D' },
+    { APP_ID: 'appD', ROLE: 'MANAGER', PERMISSION: 'appD.manage', DESCRIPTION: 'Kelola App D' },
+    { APP_ID: 'appD', ROLE: 'VIEWER', PERMISSION: 'appD.access', DESCRIPTION: 'Lihat App D' },
+    { APP_ID: 'appE', ROLE: 'MANAGER', PERMISSION: 'appE.access', DESCRIPTION: 'Akses App E' },
+    { APP_ID: 'appE', ROLE: 'MANAGER', PERMISSION: 'appE.manage', DESCRIPTION: 'Kelola App E' },
+    { APP_ID: 'appE', ROLE: 'VIEWER', PERMISSION: 'appE.access', DESCRIPTION: 'Lihat App E' }
   ];
 
   definitions.forEach(function(record) {
@@ -136,7 +152,9 @@ function createInitialAdmin() {
     password: password,
     portalRole: 'ADMIN'
   });
-  addUserAppRole_(user.userId, 'appA', 'MANAGER');
+  ['appA', 'appB', 'appC', 'appD', 'appE'].forEach(function(appId) {
+    addUserAppRole_(user.userId, appId, 'MANAGER');
+  });
 
   properties.deleteProperty('INITIAL_ADMIN_PASSWORD');
   properties.deleteProperty('INITIAL_ADMIN_USERNAME');

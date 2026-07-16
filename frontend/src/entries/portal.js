@@ -242,13 +242,25 @@ function renderPortalShell(session) {
               Cek update
             </button>
 
-            <button
-              id="logout-button"
-              type="button"
-              class="app-button-secondary min-h-10 px-3"
-            >
-              Logout
-            </button>
+            <div class="relative">
+              <button
+                id="profile-button"
+                type="button"
+                class="app-button-secondary min-h-10 gap-2 px-3"
+                aria-haspopup="menu"
+                aria-expanded="false"
+              >
+                <span class="grid h-7 w-7 place-items-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">${escapeHtml(username).slice(0, 1).toUpperCase()}</span>
+                <span class="hidden max-w-32 truncate sm:inline">${escapeHtml(username)}</span>
+              </button>
+              <div id="profile-menu" class="absolute right-0 top-full z-50 mt-2 hidden w-72 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl" role="menu">
+                <div class="rounded-xl bg-slate-50 p-3">
+                  <p class="truncate font-semibold text-slate-900">${escapeHtml(username)}</p>
+                  <p class="mt-1 text-xs text-slate-500">Portal role: ${escapeHtml(getPortalRole(session))}</p>
+                </div>
+                <button id="logout-button" type="button" class="app-button-secondary mt-3 w-full justify-start" role="menuitem">Logout</button>
+              </div>
+            </div>
           </div>
         </header>
 
@@ -400,6 +412,7 @@ function createNavigator(container) {
               safeManifest?.internalMenu ||
               []
             ),
+        visibleManifests: getVisibleManifests(),
         historyMode:
           options.historyMode ||
           'push'
@@ -516,6 +529,23 @@ function bindPortalEvents(navigate) {
       },
       { signal }
     );
+
+  const profileButton = document.querySelector('#profile-button');
+  const profileMenu = document.querySelector('#profile-menu');
+
+  profileButton?.addEventListener('click', () => {
+    const willOpen = profileMenu?.classList.contains('hidden');
+    profileMenu?.classList.toggle('hidden', !willOpen);
+    profileButton.setAttribute('aria-expanded', String(Boolean(willOpen)));
+  }, { signal });
+
+  document.addEventListener('click', (event) => {
+    if (!profileMenu || !profileButton) return;
+    if (!profileMenu.contains(event.target) && !profileButton.contains(event.target)) {
+      profileMenu.classList.add('hidden');
+      profileButton.setAttribute('aria-expanded', 'false');
+    }
+  }, { signal });
 
   document
     .querySelector(
