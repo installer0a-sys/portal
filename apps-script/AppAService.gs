@@ -34,34 +34,103 @@ function appAListMonthSheets_(ss) {
   }).sort().reverse();
 }
 
-function appAScheduleList_(context, payload) {
-  const appContext = getAppAContext_(context);
-  const sheetName = appAResolveScheduleSheet_(appContext, payload && payload.sheetName);
-  if (!sheetName) return success_({ sheetName: '', sheets: appAListMonthSheets_(appContext.spreadsheet), headers: [], rows: [], total: 0 }, 'Sheet jadwal belum ditemukan.');
+function appAReadScheduleData_(appContext, requestedSheet, limit) {
+  const sheetName = appAResolveScheduleSheet_(appContext, requestedSheet);
+  const monthSheets = appAListMonthSheets_(appContext.spreadsheet);
+  if (!sheetName) return { sheetName: '', sheets: monthSheets, head1: [], head2: [], rows: [], total: 0 };
   const sheet = appContext.spreadsheet.getSheetByName(sheetName);
   const values = sheet.getDataRange().getDisplayValues();
-  const headers = values.length ? values[0] : [];
-  const maxRows = Math.max(1, Math.min(1000, Number(payload && payload.limit || 300)));
-  const rows = values.slice(1, maxRows + 1).filter(function(row) { return row.some(function(value) { return String(value || '').trim() !== ''; }); });
-  writeAuditLog_({ requestId: payload && payload.requestId || '', userId: context.user.USER_ID, action: 'appA.schedule.view', status: 'SUCCESS', details: { sheetName: sheetName, rows: rows.length } });
+  const head1 = values.length ? values[0].map(function(value) { return String(value || '').trim(); }) : [];
+  const possibleHead2 = values.length > 1 ? values[1].map(function(value) { return String(value || '').trim(); }) : [];
+  const weekdayTokens = ['MG','SN','SL','RB','KM','JM','SB'];
+  const looksLikeSecondHeader = possibleHead2.some(function(value) { return weekdayTokens.indexOf(String(value || '').toUpperCase()) >= 0; });
+  const head2 = looksLikeSecondHeader ? possibleHead2 : new Array(head1.length).fill('');
+  const dataStart = looksLikeSecondHeader ? 2 : 1;
+  const maxRows = Math.max(1, Math.min(2000, Number(limit || 1000)));
+  const rows = values.slice(dataStart, dataStart + maxRows).filter(function(row) {
+    return row.some(function(value) { return String(value || '').trim() !== ''; });
+  });
+  return { sheetName: sheetName, sheets: monthSheets, head1: head1, head2: head2, rows: rows, total: rows.length };
+}
+
+function appAFindHeaderIndex_(headers, patterns, fallback) {
+  for (let i = 0; i < headers.length; i += 1) {
+    const normalized = String(headers[i] || '').trim().toUpperCase();
+    if (patterns.some(function(pattern) { return normalized.indexOf(pattern) >= 0; })) return i;
+  }
+  return fallback;
+}
+
+function appAGroupScheduleRows_(data, config) {
+  const headers = data.head1 || [];
+  const zoneIndex = appAFindHeaderIndex_(headers, ['ZONA'], 3);
+  const departmentIndex = appAFindHeaderIndex_(headers, ['DEPARTEMEN','DEPARTMENT'], 2);
+  const groups = {};
+  data.rows.forEach(function(row) {
+    const zone = String(row[zoneIndex] || row[departmentIndex] || 'TANPA ZONA').trim() || 'TANPA ZONA';
+    if (!groups[zone]) groups[zone] = [];
+    groups[zone].push(row);
+  });
+  const configuredOrder = String(config.URUTAN_ZONA || '').split(/[,;\n]/).map(function(value) { return value.trim(); }).filter(Boolean);
+  const zones = Object.keys(groups).sort(function(a, b) {
+    const ai = configuredOrder.map(function(value){ return value.toUpperCase(); }).indexOf(a.toUpperCase());
+    const bi = configuredOrder.map(function(value){ return value.toUpperCase(); }).indexOf(b.toUpperCase());
+    if (ai >= 0 && bi >= 0) return ai - bi;
+    if (ai >= 0) return -1;
+    if (bi >= 0) return 1;
+    return a.localeCompare(b);
+  });
+  return { zones: zones, groups: groups, zoneIndex: zoneIndex, departmentIndex: departmentIndex };
+}
+
+function appAScheduleList_(context, payload) {
+  const appContext = getAppAContext_(context);
+  const data = appAReadScheduleData_(appContext, payload && payload.sheetName, payload && payload.limit);
+  const grouped = appAGroupScheduleRows_(data, appContext.config);
+  writeAuditLog_({ requestId: payload && payload.requestId || '', userId: context.user.USER_ID, action: 'appA.schedule.view', status: 'SUCCESS', details: { sheetName: data.sheetName, rows: data.rows.length } });
   return success_({
-    appName: 'Jadwal A542', sheetName: sheetName, sheets: appAListMonthSheets_(appContext.spreadsheet), headers: headers, rows: rows,
-    total: rows.length, roles: getAppARoles_(context), readOnly: getAppARoles_(context).indexOf('USER') >= 0 && getAppARoles_(context).length === 1
+    appName: 'Jadwal A542', sheetName: data.sheetName, sheets: data.sheets,
+    head1: data.head1, head2: data.head2, headers: data.head1, rows: data.rows,
+    zones: grouped.zones, groupedRows: grouped.groups, total: data.total,
+    roles: getAppARoles_(context), readOnly: getAppARoles_(context).indexOf('USER') >= 0 && getAppARoles_(context).length === 1
   }, 'Data Jadwal A542 berhasil dimuat.');
 }
 
 function appADashboard_(context, payload) {
-  const result = appAScheduleList_(context, Object.assign({}, payload || {}, { limit: 500 }));
-  const data = result.data || {};
-  const headers = data.headers || [];
-  const rows = data.rows || [];
-  const zoneIndex = headers.findIndex(function(header) { return /zona|departemen|department/i.test(String(header)); });
-  const summary = {};
-  rows.forEach(function(row) {
-    const key = zoneIndex >= 0 ? String(row[zoneIndex] || 'Tanpa Zona') : 'Semua';
-    summary[key] = (summary[key] || 0) + 1;
+  const appContext = getAppAContext_(context);
+  const data = appAReadScheduleData_(appContext, payload && payload.sheetName, 1500);
+  const grouped = appAGroupScheduleRows_(data, appContext.config);
+  const offset = Math.max(0, Math.min(2, Number(payload && payload.dayOffset || 0)));
+  const now = new Date();
+  now.setDate(now.getDate() + offset);
+  const targetDay = String(now.getDate());
+  let dayIndex = -1;
+  for (let i = 0; i < data.head1.length; i += 1) {
+    if (String(data.head1[i] || '').trim() === targetDay) { dayIndex = i; break; }
+  }
+  const nipIndex = appAFindHeaderIndex_(data.head1, ['NIP'], 0);
+  const nameIndex = appAFindHeaderIndex_(data.head1, ['NAMA'], 1);
+  const deptIndex = appAFindHeaderIndex_(data.head1, ['DEPARTEMEN','DEPARTMENT'], 2);
+  const zoneIndex = appAFindHeaderIndex_(data.head1, ['ZONA'], 3);
+  const positionIndex = appAFindHeaderIndex_(data.head1, ['JABATAN'], 4);
+  const rows = data.rows.map(function(row) {
+    return {
+      nip: String(row[nipIndex] || ''), name: String(row[nameIndex] || ''), department: String(row[deptIndex] || ''),
+      zone: String(row[zoneIndex] || row[deptIndex] || 'TANPA ZONA'), position: String(row[positionIndex] || ''),
+      roster: dayIndex >= 0 ? String(row[dayIndex] || '') : '', raw: row
+    };
   });
-  return success_({ sheetName: data.sheetName, totalEmployees: rows.length, summary: summary, roles: data.roles, readOnly: data.readOnly }, 'Dashboard Jadwal A542 berhasil dimuat.');
+  const dashboardGroups = {};
+  rows.forEach(function(item) {
+    const zone = item.zone || 'TANPA ZONA';
+    if (!dashboardGroups[zone]) dashboardGroups[zone] = [];
+    dashboardGroups[zone].push(item);
+  });
+  return success_({
+    sheetName: data.sheetName, sheets: data.sheets, dateLabel: Utilities.formatDate(now, Session.getScriptTimeZone() || 'Asia/Jakarta', 'dd MMMM yyyy'),
+    dayOffset: offset, dayIndex: dayIndex, zones: grouped.zones, groups: dashboardGroups,
+    totalEmployees: rows.length, roles: getAppARoles_(context)
+  }, 'Dashboard Jadwal A542 berhasil dimuat.');
 }
 
 function appARequireAdmin_(context) {
