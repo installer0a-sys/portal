@@ -41,15 +41,16 @@ function getRouteFromHash() { const route = location.hash.replace(/^#/,'').trim(
 function isLauncher(manifest) { return !manifest || manifest.id === 'dashboard'; }
 function sidebarCollapsed() { return localStorage.getItem(SIDEBAR_KEY) === 'true'; }
 
-function renderProfile(session, isPortalAdmin) {
+function renderProfile(session, isPortalAdmin, activeRole) {
   const username = getUsername(session);
+  const role = String(activeRole || getPortalRole(session) || 'USER').trim().toUpperCase();
   return `<div class="relative">
     <button id="profile-button" type="button" class="flex h-11 shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 text-sm transition hover:bg-slate-50 sm:gap-3 sm:px-3" aria-expanded="false">
       <span class="grid h-8 w-8 place-items-center rounded-full bg-brand-50 font-bold text-brand-700">${escapeHtml(username).slice(0,1).toUpperCase()}</span>
       <span class="hidden max-w-36 truncate font-medium text-slate-700 sm:inline">${escapeHtml(username)}</span>${icon('chevron')}
     </button>
     <div id="profile-menu" class="absolute right-0 top-full z-50 mt-2 hidden w-[calc(100vw-2rem)] max-w-72 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
-      <div class="rounded-xl bg-slate-50 p-3"><p class="truncate font-semibold text-slate-900">${escapeHtml(username)}</p><p class="mt-1 text-xs text-slate-500">Portal role: ${escapeHtml(getPortalRole(session))}</p></div>
+      <div class="rounded-xl bg-slate-50 p-3"><p class="truncate font-semibold text-slate-900">${escapeHtml(username)}</p><p class="mt-1 text-xs font-semibold text-slate-500">${escapeHtml(role)}</p></div>
       <div class="mt-3 grid gap-2">${isPortalAdmin ? '<button id="settings-button" type="button" class="app-button-secondary w-full justify-start">Settings</button>' : ''}<button id="logout-button" type="button" class="app-button-secondary w-full justify-start text-red-600">Logout</button></div>
     </div>
   </div>`;
@@ -62,7 +63,7 @@ function renderLauncherShell(session) {
       <div class="min-w-0"><p class="font-bold text-slate-900">Portal Web</p><p class="text-xs text-slate-500">Azko Kudus Sudirman</p></div>
       <div class="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
         <button type="button" class="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600" title="Notifikasi">${icon('bell')}</button>
-        ${renderProfile(session, isAdmin)}
+        ${renderProfile(session, isAdmin, getPortalRole(session))}
       </div>
     </div></header>
     <main id="portal-content" class="mx-auto max-w-[1500px] p-4 sm:p-6 lg:h-[calc(100vh-72px)] lg:overflow-hidden"></main>
@@ -79,7 +80,7 @@ function renderAppShell(session, manifest) {
   root.innerHTML = `<div class="portal-shell-transition min-h-screen bg-slate-100 lg:flex">
     <div id="sidebar-backdrop" class="fixed inset-0 z-40 hidden bg-slate-950/40 lg:hidden"></div>
     <aside id="app-sidebar" class="app-sidebar ${collapsed ? 'is-collapsed' : ''} fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-200 bg-white p-4 lg:sticky lg:top-0 lg:h-screen">
-      <div class="sidebar-brand-text min-h-12 border-b border-slate-200 pb-4"><p class="truncate font-bold text-slate-900">${escapeHtml(manifest.title)}</p><p class="truncate text-xs text-slate-500">${escapeHtml(gate.role || 'Tanpa role')}</p></div>
+      <div class="sidebar-brand-text border-b border-slate-200 pb-4"><p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Portal Azko Kudus Sudirman</p><p class="mt-1 truncate text-base font-bold text-slate-900">Selamat datang, ${escapeHtml(getUsername(session))}</p><p class="mt-1 text-[11px] leading-4 text-slate-500">Akses aplikasi kerja dengan cepat dan ringan.</p></div>
       <nav class="mt-4 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">${menu || `<button class="sidebar-link flex min-h-11 items-center gap-3 rounded-xl bg-brand-50 px-3 text-sm font-semibold text-brand-700">${icon('home')}<span class="sidebar-label">Dashboard</span></button>`}${adminMenu}</nav>
       <p class="sidebar-section-label mt-4 text-center text-[11px] text-slate-400">Portal v0.5.0d</p>
     </aside>
@@ -91,7 +92,7 @@ function renderAppShell(session, manifest) {
         <div class="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
           ${permissionEngine.isReadOnly(session, manifest.id) ? '<span class="hidden rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700 md:inline-flex">Read only</span>' : ''}
           <button type="button" class="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600" title="Notifikasi">${icon('bell')}</button>
-          ${renderProfile(session, isAdmin)}
+          ${renderProfile(session, isAdmin, gate.role)}
         </div>
       </div></header>
       <main id="portal-content" class="p-4 sm:p-6"></main>

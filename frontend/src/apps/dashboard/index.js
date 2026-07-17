@@ -38,8 +38,8 @@ function render() {
 
   mountedContainer.innerHTML = `<section class="launcher-layout space-y-6 lg:flex lg:h-full lg:flex-col lg:space-y-0">
     <div class="launcher-fixed-area space-y-5 lg:shrink-0 lg:pb-5">
-      <article class="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-6 text-white shadow-xl sm:p-8">
-        <div class="relative max-w-3xl"><p class="text-sm font-semibold text-slate-300">Portal Azko Kudus Sudirman</p><h2 class="mt-2 text-2xl font-bold sm:text-4xl">Selamat datang, ${escapeHtml(username)}</h2><p class="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">Temukan aplikasi kerja Anda dengan cepat. Modul dimuat hanya saat dibutuhkan agar login dan perpindahan tetap ringan.</p></div>
+      <article class="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-5 text-white shadow-lg sm:p-6">
+        <div class="relative max-w-3xl"><p class="text-xs font-semibold text-slate-300">Portal Azko Kudus Sudirman</p><h2 class="mt-1 text-xl font-bold sm:text-2xl">Selamat datang, ${escapeHtml(username)}</h2><p class="mt-2 max-w-2xl text-xs leading-5 text-slate-300 sm:text-sm">Temukan aplikasi kerja dengan cepat. Modul hanya dimuat saat dibutuhkan.</p></div>
       </article>
       <section class="app-card rounded-3xl p-4 sm:p-5">
         <label class="relative block min-w-0"><span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">⌕</span><input id="portal-app-search" value="${escapeHtml(searchQuery)}" class="w-full rounded-2xl border border-slate-300 bg-slate-50 py-3 pl-11 pr-4 text-sm outline-none transition focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-50" placeholder="Cari aplikasi atau fungsi..."></label>
