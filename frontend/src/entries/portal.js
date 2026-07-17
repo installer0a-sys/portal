@@ -44,7 +44,7 @@ function renderProfile(session, isPortalAdmin) {
   const username = getUsername(session);
   return `<div class="relative">
     <button id="profile-button" type="button" class="flex h-11 shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 text-sm transition hover:bg-slate-50 sm:gap-3 sm:px-3" aria-expanded="false">
-      <span class="grid h-8 w-8 place-items-center rounded-full bg-blue-100 font-bold text-blue-700">${escapeHtml(username).slice(0,1).toUpperCase()}</span>
+      <span class="grid h-8 w-8 place-items-center rounded-full bg-brand-50 font-bold text-brand-700">${escapeHtml(username).slice(0,1).toUpperCase()}</span>
       <span class="hidden max-w-36 truncate font-medium text-slate-700 sm:inline">${escapeHtml(username)}</span><span>⌄</span>
     </button>
     <div id="profile-menu" class="absolute right-0 top-full z-50 mt-2 hidden w-[calc(100vw-2rem)] max-w-72 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
@@ -58,9 +58,8 @@ function renderLauncherShell(session) {
   const isAdmin = getPortalRole(session) === 'ADMIN';
   root.innerHTML = `<div class="portal-shell-transition min-h-screen bg-slate-100">
     <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur"><div class="mx-auto flex min-h-[72px] max-w-[1500px] items-center gap-4 px-4 sm:px-6">
-      <div class="flex min-w-0 items-center gap-3"><span class="grid h-10 w-10 place-items-center rounded-xl bg-slate-900 text-sm font-black text-white">AZ</span><div class="hidden sm:block"><p class="font-bold text-slate-900">Portal Web</p><p class="text-xs text-slate-500">Azko Kudus Sudirman</p></div></div>
+      <div class="min-w-0"><p class="font-bold text-slate-900">Portal Web</p><p class="text-xs text-slate-500">Azko Kudus Sudirman</p></div>
       <div class="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
-        <button id="focus-app-search" type="button" class="hidden min-h-11 min-w-64 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 text-left text-sm text-slate-500 transition hover:bg-white lg:flex">${icon('search')}<span class="flex-1">Cari aplikasi...</span><kbd class="rounded-md border bg-white px-2 py-1 text-[10px]">Ctrl K</kbd></button>
         <button type="button" class="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600" title="Notifikasi">${icon('bell')}</button>
         ${renderProfile(session, isAdmin)}
       </div>
@@ -79,18 +78,17 @@ function renderAppShell(session, manifest) {
   root.innerHTML = `<div class="portal-shell-transition min-h-screen bg-slate-100 lg:flex">
     <div id="sidebar-backdrop" class="fixed inset-0 z-40 hidden bg-slate-950/40 lg:hidden"></div>
     <aside id="app-sidebar" class="app-sidebar ${collapsed ? 'is-collapsed' : ''} fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-200 bg-white p-4 lg:sticky lg:top-0 lg:h-screen">
-      <div class="flex min-h-12 items-center gap-3 border-b border-slate-200 pb-4"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-900 text-sm font-black text-white">${escapeHtml((manifest.shortTitle || manifest.title).slice(0,2).toUpperCase())}</span><div class="sidebar-brand-text min-w-0"><p class="truncate font-bold text-slate-900">${escapeHtml(manifest.title)}</p><p class="truncate text-xs text-slate-500">${escapeHtml(gate.role || 'Tanpa role')}</p></div></div>
-      <nav class="mt-4 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">${menu || `<button class="sidebar-link flex min-h-11 items-center gap-3 rounded-xl bg-blue-50 px-3 text-sm font-semibold text-blue-700">${icon('home')}<span class="sidebar-label">Dashboard</span></button>`}${adminMenu}</nav>
-      <p class="sidebar-section-label mt-4 text-center text-[11px] text-slate-400">Portal v0.5.0</p>
+      <div class="sidebar-brand-text min-h-12 border-b border-slate-200 pb-4"><p class="truncate font-bold text-slate-900">${escapeHtml(manifest.title)}</p><p class="truncate text-xs text-slate-500">${escapeHtml(gate.role || 'Tanpa role')}</p></div>
+      <nav class="mt-4 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">${menu || `<button class="sidebar-link flex min-h-11 items-center gap-3 rounded-xl bg-brand-50 px-3 text-sm font-semibold text-brand-700">${icon('home')}<span class="sidebar-label">Dashboard</span></button>`}${adminMenu}</nav>
+      <p class="sidebar-section-label mt-4 text-center text-[11px] text-slate-400">Portal v0.5.0c</p>
     </aside>
     <section class="min-w-0 flex-1">
       <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur"><div class="flex min-h-[72px] items-center gap-2 px-4 sm:px-6">
         <button id="toggle-sidebar" type="button" class="grid h-11 w-11 place-items-center rounded-xl border border-slate-200 bg-white text-slate-700" title="Perkecil / buka sidebar">${icon('menu')}</button>
         <button id="all-apps-button" type="button" class="grid h-11 w-11 place-items-center rounded-xl border border-slate-200 bg-white text-slate-700" title="Kembali ke Portal Launcher">${icon('apps')}</button>
-        <div class="ml-1 min-w-0"><p class="truncate font-bold text-slate-900">${escapeHtml(manifest.title)}</p><p class="truncate text-xs text-slate-500"><button data-go-launcher class="hover:text-blue-600">Portal</button> / ${escapeHtml(manifest.shortTitle || manifest.title)} / <span id="breadcrumb-page">Dashboard</span></p></div>
+        <div class="ml-1 min-w-0"><p class="truncate font-bold text-slate-900">${escapeHtml(manifest.title)}</p><p class="truncate text-xs text-slate-500"><button data-go-launcher class="hover:text-brand-600">Portal</button> / ${escapeHtml(manifest.shortTitle || manifest.title)} / <span id="breadcrumb-page">Dashboard</span></p></div>
         <div class="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
           ${permissionEngine.isReadOnly(session, manifest.id) ? '<span class="hidden rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700 md:inline-flex">Read only</span>' : ''}
-          <button type="button" class="hidden h-11 w-11 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 sm:grid" title="Cari">${icon('search')}</button>
           <button type="button" class="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600" title="Notifikasi">${icon('bell')}</button>
           ${renderProfile(session, isAdmin)}
         </div>
@@ -145,12 +143,11 @@ function bindShellEvents(navigate) {
   }, { signal });
   document.querySelector('#sidebar-backdrop')?.addEventListener('click', () => { document.querySelector('#app-sidebar')?.classList.remove('is-mobile-open'); document.querySelector('#sidebar-backdrop')?.classList.add('hidden'); }, { signal });
   document.querySelectorAll('[data-internal-route]').forEach((button) => button.addEventListener('click', () => {
-    document.querySelectorAll('[data-internal-route]').forEach((item) => item.classList.remove('bg-blue-50','text-blue-700'));
-    button.classList.add('bg-blue-50','text-blue-700');
+    document.querySelectorAll('[data-internal-route]').forEach((item) => item.classList.remove('bg-brand-50','text-brand-700'));
+    button.classList.add('bg-brand-50','text-brand-700');
     const crumb = document.querySelector('#breadcrumb-page'); if (crumb) crumb.textContent = button.dataset.tooltip || button.textContent.trim();
     document.querySelector('#app-sidebar')?.classList.remove('is-mobile-open'); document.querySelector('#sidebar-backdrop')?.classList.add('hidden');
   }, { signal }));
-  document.querySelector('#focus-app-search')?.addEventListener('click', () => document.querySelector('#portal-app-search')?.focus(), { signal });
   window.addEventListener('keydown', (event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); if (!isLauncher(currentManifest)) navigate('dashboard', { historyMode: 'push' }).then(() => document.querySelector('#portal-app-search')?.focus()); else document.querySelector('#portal-app-search')?.focus(); } }, { signal });
   window.addEventListener('hashchange', () => { const route = getRouteFromHash(); if (store.getState().route !== route) navigate(route, { historyMode: 'none' }); }, { signal });
 }

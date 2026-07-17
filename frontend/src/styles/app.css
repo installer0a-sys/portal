@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-50: #eff6ff;
-  --color-brand-500: #2563eb;
-  --color-brand-600: #1d4ed8;
-  --color-brand-700: #1e40af;
+  --color-brand-50: #f2f5f9;
+  --color-brand-500: #7b91ad;
+  --color-brand-600: #687f9d;
+  --color-brand-700: #566d8a;
 }
 
 @layer base {
@@ -14,6 +14,13 @@
 
   body {
     @apply min-h-screen bg-slate-50 text-slate-900 antialiased;
+    caret-color: transparent;
+  }
+
+  input,
+  textarea,
+  [contenteditable="true"] {
+    caret-color: auto;
   }
 
   button,
@@ -53,7 +60,7 @@
     background-image:
       linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
       linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
-      radial-gradient(circle at 20% 35%, rgba(37,99,235,.12), transparent 28%),
+      radial-gradient(circle at 20% 35%, rgba(104,127,157,.11), transparent 28%),
       radial-gradient(circle at 82% 72%, rgba(15,23,42,.8), transparent 35%);
     background-size: 42px 42px, 42px 42px, auto, auto;
   }
