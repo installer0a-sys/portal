@@ -12,6 +12,21 @@ function normalizeAppAccessStatus_(value) {
   return status;
 }
 
+
+function getRegisteredAppIdMap_() {
+  const sheet = getPortalSpreadsheet_().getSheetByName('APPS');
+  const result = {};
+  if (!sheet || sheet.getLastRow() < 2) return result;
+  const headers = getSheetHeaders_(sheet);
+  sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues().forEach(function(row) {
+    const item = rowToObject_(headers, row);
+    const appId = String(item.APP_ID || '').trim();
+    if (!appId || appId === 'portal' || item.DELETED_AT) return;
+    result[appId] = true;
+  });
+  return result;
+}
+
 function getAppRoleMasterMap_() {
   const sheet = getPortalSpreadsheet_().getSheetByName('APP_ROLE_MASTER');
   const result = {};
@@ -26,7 +41,23 @@ function getAppRoleMasterMap_() {
     if (!result[appId]) result[appId] = [];
     if (result[appId].indexOf(role) < 0) result[appId].push(role);
   });
-  Object.keys(result).forEach(function(appId) { result[appId].sort(); });
+  const registeredApps = getRegisteredAppIdMap_();
+  Object.keys(registeredApps).forEach(function(appId) {
+    if (!result[appId]) result[appId] = [];
+    ['ADMIN', 'USER'].forEach(function(role) {
+      if (result[appId].indexOf(role) < 0) result[appId].push(role);
+    });
+  });
+  Object.keys(result).forEach(function(appId) {
+    result[appId] = result[appId].filter(function(role, index, roles) {
+      return role && roles.indexOf(role) === index;
+    }).sort(function(left, right) {
+      const priority = { ADMIN: 0, USER: 1 };
+      const leftPriority = Object.prototype.hasOwnProperty.call(priority, left) ? priority[left] : 10;
+      const rightPriority = Object.prototype.hasOwnProperty.call(priority, right) ? priority[right] : 10;
+      return leftPriority !== rightPriority ? leftPriority - rightPriority : left.localeCompare(right);
+    });
+  });
   return result;
 }
 
@@ -84,27 +115,33 @@ function replaceManagedUserAppAccess_(userId, appAccess) {
   if (!accessSheet || !roleSheet) throw new Error('Sheet akses aplikasi belum tersedia. Jalankan setupPortalSheets().');
 
   const incoming = appAccess || {};
+  const registeredApps = getRegisteredAppIdMap_();
+  const accessRecords = [];
+  const roleRecords = [];
   const now = new Date();
-  rewriteUserScopedRows_(accessSheet, userId, Object.keys(incoming).filter(function(appId) {
-    return incoming[appId] && incoming[appId].access === true;
-  }).map(function(appId) {
-    const entry = incoming[appId] || {};
-    return {
-      USER_ID: userId,
-      APP_ID: appId,
-      ACCESS: true,
-      STATUS: normalizeAppAccessStatus_(entry.status || 'ACTIVE'),
-      CREATED_AT: now,
-      UPDATED_AT: now
-    };
-  }));
 
-  rewriteUserScopedRows_(roleSheet, userId, Object.keys(incoming).filter(function(appId) {
-    return incoming[appId] && incoming[appId].access === true && normalizeAppRole_(incoming[appId].role);
-  }).map(function(appId) {
-    const role = validateRoleForApp_(appId, incoming[appId].role);
-    return { USER_ID: userId, APP_ID: appId, ROLE: role, CREATED_AT: now, UPDATED_AT: now };
-  }));
+  Object.keys(incoming).forEach(function(appId) {
+    const entry = incoming[appId] || {};
+    if (entry.access !== true) return;
+    if (!registeredApps[appId]) {
+      const error = new Error('Aplikasi ' + appId + ' tidak terdaftar atau sudah dihapus.');
+      error.code = 'VALIDATION_ERROR';
+      error.field = 'appAccess';
+      throw error;
+    }
+    const status = normalizeAppAccessStatus_(entry.status || 'ACTIVE');
+    const role = validateRoleForApp_(appId, entry.role);
+    accessRecords.push({
+      USER_ID: userId, APP_ID: appId, ACCESS: true, STATUS: status, CREATED_AT: now, UPDATED_AT: now
+    });
+    if (role) {
+      roleRecords.push({ USER_ID: userId, APP_ID: appId, ROLE: role, CREATED_AT: now, UPDATED_AT: now });
+    }
+  });
+
+  // Seluruh payload divalidasi sebelum sheet ditulis agar tidak terjadi data setengah tersimpan.
+  rewriteUserScopedRows_(accessSheet, userId, accessRecords);
+  rewriteUserScopedRows_(roleSheet, userId, roleRecords);
 }
 
 function rewriteUserScopedRows_(sheet, userId, records) {

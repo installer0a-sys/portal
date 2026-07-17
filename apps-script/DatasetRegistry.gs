@@ -1,4 +1,4 @@
-const PORTAL_SCHEMA_VERSION = 5;
+const PORTAL_SCHEMA_VERSION = 6;
 
 const PORTAL_DATASETS = Object.freeze({
   appARecords: createDatasetDefinition_('appA', 'APP_A_DATA'),

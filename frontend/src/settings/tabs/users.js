@@ -10,7 +10,7 @@ let includeInactive = true;
 let abortController = null;
 
 function escapeHtml(value) {
-  return String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
+  return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
 }
 
 function formatDate(value) {
@@ -19,22 +19,36 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? String(value) : new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 }
 
+function registeredApps() {
+  return apps.filter((app) => app.appId !== 'portal' && app.status !== 'DELETED');
+}
+
 function filteredUsers() {
   const keyword = query.trim().toLowerCase();
   if (!keyword) return users;
-  return users.filter((user) => [user.username, user.displayName, user.portalRole, user.status]
-    .some((value) => String(value || '').toLowerCase().includes(keyword)));
+  return users.filter((user) => {
+    const accessText = Object.entries(user.appAccess || {}).map(([appId, entry]) => `${appId} ${entry.role || ''} ${entry.status || ''}`).join(' ');
+    return [user.username, user.displayName, user.portalRole, user.status, accessText]
+      .some((value) => String(value || '').toLowerCase().includes(keyword));
+  });
 }
 
 function accessBadges(user) {
   const entries = Object.entries(user.appAccess || {});
   if (!entries.length) return '<span class="text-xs text-slate-400">Belum ada akses app</span>';
-  return entries.map(([appId, item]) => {
+  const totalApps = registeredApps().length;
+  const activeEntries = entries.filter(([, item]) => String(item.status || 'ACTIVE').toUpperCase() === 'ACTIVE');
+  const allGranted = totalApps > 0 && entries.length === totalApps;
+  const summary = allGranted
+    ? '<span class="rounded-full bg-blue-100 px-2.5 py-1 text-[11px] font-black text-blue-700" title="Akses ke semua aplikasi">*</span>'
+    : `<span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600">${entries.length}/${totalApps} APP</span>`;
+  const badges = entries.map(([appId, item]) => {
     const label = item.role || 'ROLE KOSONG';
     const status = String(item.status || 'ACTIVE').toUpperCase();
     const tone = !item.role ? 'bg-amber-50 text-amber-700' : status === 'ACTIVE' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-500';
     return `<span class="rounded-full px-2.5 py-1 text-[11px] font-bold ${tone}">${escapeHtml(appId)} · ${escapeHtml(label)}${status === 'INACTIVE' ? ' · INACTIVE' : ''}</span>`;
   }).join('');
+  return `${summary}${badges}<span class="sr-only">${activeEntries.length} akses aktif</span>`;
 }
 
 function render() {
@@ -43,7 +57,7 @@ function render() {
   containerRef.innerHTML = `
     <section class="space-y-4">
       <div class="app-card flex flex-col gap-3 xl:flex-row xl:items-center">
-        <label class="relative min-w-0 flex-1"><span class="sr-only">Cari user</span><input data-user-search value="${escapeHtml(query)}" class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100" placeholder="Cari username, nama, portal role..."></label>
+        <label class="relative min-w-0 flex-1"><span class="sr-only">Cari user</span><input data-user-search value="${escapeHtml(query)}" class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100" placeholder="Cari user, role, atau aplikasi..."></label>
         <label class="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700"><input data-include-inactive type="checkbox" ${includeInactive ? 'checked' : ''}> User nonaktif</label>
         <button type="button" data-user-refresh class="app-button-secondary">Refresh</button>
         <button type="button" data-user-create class="app-button-primary">+ Tambah user</button>
@@ -55,14 +69,20 @@ function render() {
   bind();
 }
 
+function roleOptions(appId, currentRole) {
+  const normalizedCurrent = String(currentRole || '').trim().toUpperCase();
+  const roles = [...new Set([...(appRoleMaster[appId] || []), 'ADMIN', 'USER'].map((role) => String(role || '').trim().toUpperCase()).filter(Boolean))]
+    .sort((left, right) => ({ ADMIN: 0, USER: 1 }[left] ?? 10) - ({ ADMIN: 0, USER: 1 }[right] ?? 10) || left.localeCompare(right));
+  return `<option value="">Belum terdaftar</option>${roles.map((role) => `<option value="${escapeHtml(role)}" ${normalizedCurrent === role ? 'selected' : ''}>${escapeHtml(role)}</option>`).join('')}`;
+}
+
 function appAccessFields(user = {}) {
-  return apps.filter((app) => app.appId !== 'portal' && app.status !== 'DELETED').map((app) => {
+  return registeredApps().map((app) => {
     const current = user.appAccess?.[app.appId] || { access: false, status: 'ACTIVE', role: '' };
-    const roles = appRoleMaster[app.appId] || ['ADMIN', 'USER'];
-    return `<fieldset data-app-access-card="${escapeHtml(app.appId)}" class="rounded-2xl border border-slate-200 p-4">
-      <label class="flex items-start gap-3"><input data-app-access-checkbox="${escapeHtml(app.appId)}" name="access:${escapeHtml(app.appId)}" type="checkbox" ${current.access ? 'checked' : ''} class="mt-1 size-4"><span><strong class="block text-sm text-slate-900">${escapeHtml(app.appName || app.appId)}</strong><span class="text-xs text-slate-500">${escapeHtml(app.appId)}</span></span></label>
+    return `<fieldset data-app-access-card="${escapeHtml(app.appId)}" class="rounded-2xl border border-slate-200 p-4 transition ${current.access ? 'bg-white' : 'bg-slate-50'}">
+      <label class="flex cursor-pointer items-start gap-3"><input data-app-access-checkbox="${escapeHtml(app.appId)}" name="access:${escapeHtml(app.appId)}" type="checkbox" ${current.access ? 'checked' : ''} class="mt-1 size-4"><span class="min-w-0"><strong class="block truncate text-sm text-slate-900">${escapeHtml(app.appName || app.appId)}</strong><span class="text-xs text-slate-500">${escapeHtml(app.appId)}</span></span></label>
       <div data-app-access-controls="${escapeHtml(app.appId)}" class="mt-3 grid gap-3 sm:grid-cols-2 ${current.access ? '' : 'opacity-45'}">
-        <label class="text-xs font-bold uppercase tracking-wide text-slate-500">Role<select name="role:${escapeHtml(app.appId)}" ${current.access ? '' : 'disabled'} class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-normal text-slate-800"><option value="">Belum terdaftar</option>${roles.map((role) => `<option value="${escapeHtml(role)}" ${String(current.role).toUpperCase() === role ? 'selected' : ''}>${escapeHtml(role)}</option>`).join('')}</select></label>
+        <label class="text-xs font-bold uppercase tracking-wide text-slate-500">Role<select name="role:${escapeHtml(app.appId)}" ${current.access ? '' : 'disabled'} class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-normal text-slate-800">${roleOptions(app.appId, current.role)}</select></label>
         <label class="text-xs font-bold uppercase tracking-wide text-slate-500">Status<select name="appStatus:${escapeHtml(app.appId)}" ${current.access ? '' : 'disabled'} class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-normal text-slate-800"><option value="ACTIVE" ${current.status !== 'INACTIVE' ? 'selected' : ''}>ACTIVE</option><option value="INACTIVE" ${current.status === 'INACTIVE' ? 'selected' : ''}>INACTIVE</option></select></label>
       </div>
     </fieldset>`;
@@ -70,7 +90,17 @@ function appAccessFields(user = {}) {
 }
 
 function userFormTemplate(user = null) {
-  return `<form data-user-form class="space-y-5"><div class="grid gap-4 sm:grid-cols-2"><label class="text-sm font-semibold text-slate-700">Username<input name="username" ${user ? 'readonly' : ''} value="${escapeHtml(user?.username || '')}" required class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal"></label><label class="text-sm font-semibold text-slate-700">Nama tampilan<input name="displayName" value="${escapeHtml(user?.displayName || '')}" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal"></label>${user ? '' : '<label class="text-sm font-semibold text-slate-700 sm:col-span-2">Password awal<input name="password" type="password" minlength="8" required class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal" autocomplete="new-password"></label>'}<label class="text-sm font-semibold text-slate-700">Portal role<select name="portalRole" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal"><option value="USER" ${user?.portalRole !== 'ADMIN' ? 'selected' : ''}>USER</option><option value="ADMIN" ${user?.portalRole === 'ADMIN' ? 'selected' : ''}>ADMIN</option></select></label><label class="text-sm font-semibold text-slate-700">Status<select name="status" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal"><option value="ACTIVE" ${user?.status !== 'INACTIVE' ? 'selected' : ''}>ACTIVE</option><option value="INACTIVE" ${user?.status === 'INACTIVE' ? 'selected' : ''}>INACTIVE</option></select></label></div><div><h4 class="font-bold text-slate-900">Akses aplikasi</h4><p class="mt-1 text-xs text-slate-500">Centang aplikasi yang tampil di portal. Role kosong tetap menampilkan app, tetapi app tidak dapat dibuka.</p><div class="mt-3 grid gap-3 xl:grid-cols-2">${appAccessFields(user || {}) || '<p class="text-sm text-slate-500">Belum ada app terdaftar.</p>'}</div></div><div class="flex justify-end gap-2"><button type="button" data-form-cancel class="app-button-secondary">Batal</button><button type="submit" class="app-button-primary">Simpan</button></div></form>`;
+  return `<form data-user-form class="space-y-5"><div class="grid gap-4 sm:grid-cols-2"><label class="text-sm font-semibold text-slate-700">Username<input name="username" ${user ? 'readonly' : ''} value="${escapeHtml(user?.username || '')}" required class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal"></label><label class="text-sm font-semibold text-slate-700">Nama tampilan<input name="displayName" value="${escapeHtml(user?.displayName || '')}" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal"></label>${user ? '' : '<label class="text-sm font-semibold text-slate-700 sm:col-span-2">Password awal<input name="password" type="password" minlength="8" required class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal" autocomplete="new-password"></label>'}<label class="text-sm font-semibold text-slate-700">Portal role<select name="portalRole" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal"><option value="USER" ${user?.portalRole !== 'ADMIN' ? 'selected' : ''}>USER</option><option value="ADMIN" ${user?.portalRole === 'ADMIN' ? 'selected' : ''}>ADMIN</option></select></label><label class="text-sm font-semibold text-slate-700">Status<select name="status" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal"><option value="ACTIVE" ${user?.status !== 'INACTIVE' ? 'selected' : ''}>ACTIVE</option><option value="INACTIVE" ${user?.status === 'INACTIVE' ? 'selected' : ''}>INACTIVE</option></select></label></div><div><div class="flex flex-wrap items-end justify-between gap-3"><div><h4 class="font-bold text-slate-900">Akses aplikasi</h4><p class="mt-1 text-xs text-slate-500">Centang app yang muncul di portal. Role kosong tetap menampilkan app, tetapi app tidak dapat dibuka.</p></div><div class="flex gap-2"><button type="button" data-select-all-apps class="app-button-secondary min-h-9 px-3">Pilih semua</button><button type="button" data-clear-all-apps class="app-button-secondary min-h-9 px-3">Kosongkan</button></div></div><div class="mt-3 grid gap-3 xl:grid-cols-2">${appAccessFields(user || {}) || '<p class="text-sm text-slate-500">Belum ada app terdaftar.</p>'}</div></div><div class="sticky bottom-0 flex justify-end gap-2 border-t border-slate-200 bg-white/95 py-4 backdrop-blur"><button type="button" data-form-cancel class="app-button-secondary">Batal</button><button type="submit" class="app-button-primary">Simpan</button></div></form>`;
+}
+
+function setAppCardEnabled(host, checkbox) {
+  const appId = checkbox.dataset.appAccessCheckbox;
+  const controls = host.querySelector(`[data-app-access-controls="${CSS.escape(appId)}"]`);
+  const card = host.querySelector(`[data-app-access-card="${CSS.escape(appId)}"]`);
+  controls?.classList.toggle('opacity-45', !checkbox.checked);
+  controls?.querySelectorAll('select').forEach((select) => { select.disabled = !checkbox.checked; });
+  card?.classList.toggle('bg-slate-50', !checkbox.checked);
+  card?.classList.toggle('bg-white', checkbox.checked);
 }
 
 function openDialog(title, body) {
@@ -80,12 +110,9 @@ function openDialog(title, body) {
   document.body.appendChild(host);
   host.addEventListener('click', (event) => { if (event.target === host) host.remove(); });
   host.querySelector('[data-form-cancel]')?.addEventListener('click', () => host.remove());
-  host.querySelectorAll('[data-app-access-checkbox]').forEach((checkbox) => checkbox.addEventListener('change', () => {
-    const appId = checkbox.dataset.appAccessCheckbox;
-    const controls = host.querySelector(`[data-app-access-controls="${CSS.escape(appId)}"]`);
-    controls?.classList.toggle('opacity-45', !checkbox.checked);
-    controls?.querySelectorAll('select').forEach((select) => { select.disabled = !checkbox.checked; });
-  }));
+  host.querySelectorAll('[data-app-access-checkbox]').forEach((checkbox) => checkbox.addEventListener('change', () => setAppCardEnabled(host, checkbox)));
+  host.querySelector('[data-select-all-apps]')?.addEventListener('click', () => host.querySelectorAll('[data-app-access-checkbox]').forEach((checkbox) => { checkbox.checked = true; setAppCardEnabled(host, checkbox); }));
+  host.querySelector('[data-clear-all-apps]')?.addEventListener('click', () => host.querySelectorAll('[data-app-access-checkbox]').forEach((checkbox) => { checkbox.checked = false; setAppCardEnabled(host, checkbox); }));
   return host;
 }
 
@@ -93,18 +120,25 @@ async function openUserForm(user = null) {
   const host = openDialog(user ? 'Edit user' : 'Tambah user', userFormTemplate(user));
   host.querySelector('[data-user-form]').addEventListener('submit', async (event) => {
     event.preventDefault();
+    const submitButton = event.currentTarget.querySelector('[type="submit"]');
+    submitButton.disabled = true;
     const formData = new FormData(event.currentTarget);
     const appAccess = {};
-    apps.filter((app) => app.appId !== 'portal').forEach((app) => {
+    registeredApps().forEach((app) => {
       if (!formData.has(`access:${app.appId}`)) return;
-      appAccess[app.appId] = { access: true, status: String(formData.get(`appStatus:${app.appId}`) || 'ACTIVE').toUpperCase(), role: String(formData.get(`role:${app.appId}`) || '').toUpperCase() };
+      appAccess[app.appId] = { access: true, status: String(formData.get(`appStatus:${app.appId}`) || 'ACTIVE').trim().toUpperCase(), role: String(formData.get(`role:${app.appId}`) || '').trim().toUpperCase() };
     });
-    const values = { displayName: formData.get('displayName'), portalRole: formData.get('portalRole'), status: formData.get('status'), appAccess };
+    const values = { displayName: formData.get('displayName'), portalRole: String(formData.get('portalRole') || 'USER').toUpperCase(), status: String(formData.get('status') || 'ACTIVE').toUpperCase(), appAccess };
     try {
       if (user) await callApi('users.update', { userId: user.userId, values }, { deduplicate: false });
-      else await callApi('users.create', { username: formData.get('username'), displayName: formData.get('displayName'), password: formData.get('password'), portalRole: formData.get('portalRole'), status: formData.get('status'), appAccess }, { deduplicate: false });
-      toast.success(user ? 'User diperbarui.' : 'User ditambahkan.'); host.remove(); await load();
-    } catch (error) { toast.error(error.message); }
+      else await callApi('users.create', { username: formData.get('username'), displayName: formData.get('displayName'), password: formData.get('password'), portalRole: values.portalRole, status: values.status, appAccess }, { deduplicate: false });
+      toast.success(user ? 'User diperbarui.' : 'User ditambahkan.');
+      host.remove();
+      await load();
+    } catch (error) {
+      toast.error(error.message);
+      submitButton.disabled = false;
+    }
   });
 }
 
@@ -122,11 +156,15 @@ async function load() {
     appRoleMaster = userResult.data?.appRoleMaster || {};
     apps = appResult.data?.apps || [];
     render();
-  } catch (error) { containerRef.innerHTML = `<div class="app-card border-red-200 bg-red-50 text-sm text-red-700">${escapeHtml(error.message)}</div>`; }
+  } catch (error) {
+    containerRef.innerHTML = `<div class="app-card border-red-200 bg-red-50 text-sm text-red-700">${escapeHtml(error.message)}</div>`;
+  }
 }
 
 function bind() {
-  abortController?.abort(); abortController = new AbortController(); const { signal } = abortController;
+  abortController?.abort();
+  abortController = new AbortController();
+  const { signal } = abortController;
   containerRef.querySelector('[data-user-search]')?.addEventListener('input', (event) => { const cursor = event.target.selectionStart; query = event.target.value; render(); const input = containerRef?.querySelector('[data-user-search]'); input?.focus(); input?.setSelectionRange(cursor, cursor); }, { signal });
   containerRef.querySelector('[data-include-inactive]')?.addEventListener('change', async (event) => { includeInactive = event.target.checked; await load(); }, { signal });
   containerRef.querySelector('[data-user-refresh]')?.addEventListener('click', load, { signal });
@@ -136,4 +174,7 @@ function bind() {
   containerRef.querySelectorAll('[data-user-revoke]').forEach((button) => button.addEventListener('click', async () => { const user = users.find((item) => item.userId === button.dataset.userRevoke); if (!user || !confirm(`Cabut seluruh sesi ${user.displayName || user.username}?`)) return; try { await callApi('users.revokeSessions', { userId: user.userId }, { deduplicate: false }); toast.success('Seluruh sesi user dicabut.'); await load(); } catch (error) { toast.error(error.message); } }, { signal }));
 }
 
-export async function mount(container) { containerRef = container; await load(); }
+export async function mount(container) {
+  containerRef = container;
+  await load();
+}
