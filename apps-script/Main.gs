@@ -1,4 +1,4 @@
-const PORTAL_VERSION = '0.6.4';
+const PORTAL_VERSION = '0.7.0-reset';
 
 function doGet() {
   return jsonOutput_(success_({

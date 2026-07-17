@@ -14,65 +14,8 @@ function routeApi_(request) {
     case 'auth.logout':
       return logout_(sessionToken, requestId);
 
-    case 'appA.dashboard': {
-      const context = validateSession_(sessionToken);
-      return appADashboard_(context, payload);
-    }
-    case 'appA.schedule.list': {
-      const context = validateSession_(sessionToken);
-      return appAScheduleListV061_(context, payload);
-    }
-    case 'appA.schedule.editor.get': {
-      const context = validateSession_(sessionToken);
-      return appAScheduleEditorGet_(context, payload);
-    }
-    case 'appA.schedule.editor.validate': {
-      const context = validateSession_(sessionToken);
-      return appAScheduleEditorValidate_(context, payload);
-    }
-    case 'appA.schedule.editor.save': {
-      const context = validateSession_(sessionToken);
-      return appAScheduleEditorSaveV059_(context, payload, requestId);
-    }
-    case 'appA.schedule.generate.options': {
-      const context = validateSession_(sessionToken);
-      return appAGenerateOptions_(context, payload);
-    }
-    case 'appA.schedule.generate.preview': {
-      const context = validateSession_(sessionToken);
-      return appAGeneratePreview_(context, payload, requestId);
-    }
-    case 'appA.schedule.generate.apply': {
-      const context = validateSession_(sessionToken);
-      return appAGenerateApply_(context, payload, requestId);
-    }
-    case 'appA.config.get': {
-      const context = validateSession_(sessionToken);
-      return appAConfigurationV062_(context);
-    }
-    case 'appA.config.save': {
-      const context = validateSession_(sessionToken);
-      return appASaveConfiguration_(context, payload, requestId);
-    }
-    case 'appA.employees.list': {
-      const context = validateSession_(sessionToken);
-      return appAEmployees_(context, payload);
-    }
-    case 'appA.employees.save': {
-      const context = validateSession_(sessionToken);
-      return appASaveEmployeesV062_(context, payload, requestId);
-    }
-    case 'appA.ping': {
-      const context = validateSession_(sessionToken);
-      requirePermission_(context, 'appA.access');
-      return success_({
-        appId: 'appA',
-        ready: true,
-        user: sanitizeUser_(context.user),
-        role: context.access.appRoles.appA || '',
-        permissionSignature: context.access.permissionSignature
-      }, 'Jadwal A542 terhubung.');
-    }
+    // App A / Jadwal A542 sengaja dikosongkan.
+    // Seluruh endpoint bisnis akan dibuat ulang dari nol.
 
     case 'data.list': {
       const context = validateSession_(sessionToken);

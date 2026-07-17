@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'portal-v3-runtime-v0.6.4';
+const CACHE_VERSION = 'portal-v3-runtime-v0.7.0-reset';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const PAGE_CACHE = `${CACHE_VERSION}-pages`;
 
