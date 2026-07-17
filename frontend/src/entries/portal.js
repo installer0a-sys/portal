@@ -29,6 +29,7 @@ const icon = (name) => ({
   calendar: '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>',
   users: '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0M16 3.5a4 4 0 0 1 0 8M17 15a6 6 0 0 1 5 6"/></svg>',
   report: '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>',
+  chevron: '<svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 10 4 4 4-4"/></svg>',
   settings: '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1v.1h-4v-.1a1.7 1.7 0 0 0-1.06-1.57 1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1-.4H3v-4h.1A1.7 1.7 0 0 0 4.67 8.5a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1V3h4v.1A1.7 1.7 0 0 0 15.5 4.67a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.14.38.36.73.65 1 .29.27.65.47 1.05.57h.1v4h-.1A1.7 1.7 0 0 0 19.4 15Z"/></svg>'
 }[name] || '<span class="text-base">•</span>');
 
@@ -45,11 +46,11 @@ function renderProfile(session, isPortalAdmin) {
   return `<div class="relative">
     <button id="profile-button" type="button" class="flex h-11 shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 text-sm transition hover:bg-slate-50 sm:gap-3 sm:px-3" aria-expanded="false">
       <span class="grid h-8 w-8 place-items-center rounded-full bg-brand-50 font-bold text-brand-700">${escapeHtml(username).slice(0,1).toUpperCase()}</span>
-      <span class="hidden max-w-36 truncate font-medium text-slate-700 sm:inline">${escapeHtml(username)}</span><span>⌄</span>
+      <span class="hidden max-w-36 truncate font-medium text-slate-700 sm:inline">${escapeHtml(username)}</span>${icon('chevron')}
     </button>
     <div id="profile-menu" class="absolute right-0 top-full z-50 mt-2 hidden w-[calc(100vw-2rem)] max-w-72 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
       <div class="rounded-xl bg-slate-50 p-3"><p class="truncate font-semibold text-slate-900">${escapeHtml(username)}</p><p class="mt-1 text-xs text-slate-500">Portal role: ${escapeHtml(getPortalRole(session))}</p></div>
-      <div class="mt-3 grid gap-2">${isPortalAdmin ? '<button id="settings-button" type="button" class="app-button-secondary w-full justify-start gap-3">⚙ <span>Settings</span></button>' : ''}<button id="logout-button" type="button" class="app-button-secondary w-full justify-start gap-3 text-red-600">↪ <span>Logout</span></button></div>
+      <div class="mt-3 grid gap-2">${isPortalAdmin ? '<button id="settings-button" type="button" class="app-button-secondary w-full justify-start">Settings</button>' : ''}<button id="logout-button" type="button" class="app-button-secondary w-full justify-start text-red-600">Logout</button></div>
     </div>
   </div>`;
 }
@@ -64,7 +65,7 @@ function renderLauncherShell(session) {
         ${renderProfile(session, isAdmin)}
       </div>
     </div></header>
-    <main id="portal-content" class="mx-auto max-w-[1500px] p-4 sm:p-6"></main>
+    <main id="portal-content" class="mx-auto max-w-[1500px] p-4 sm:p-6 lg:h-[calc(100vh-72px)] lg:overflow-hidden"></main>
   </div>`;
 }
 
@@ -80,7 +81,7 @@ function renderAppShell(session, manifest) {
     <aside id="app-sidebar" class="app-sidebar ${collapsed ? 'is-collapsed' : ''} fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-200 bg-white p-4 lg:sticky lg:top-0 lg:h-screen">
       <div class="sidebar-brand-text min-h-12 border-b border-slate-200 pb-4"><p class="truncate font-bold text-slate-900">${escapeHtml(manifest.title)}</p><p class="truncate text-xs text-slate-500">${escapeHtml(gate.role || 'Tanpa role')}</p></div>
       <nav class="mt-4 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">${menu || `<button class="sidebar-link flex min-h-11 items-center gap-3 rounded-xl bg-brand-50 px-3 text-sm font-semibold text-brand-700">${icon('home')}<span class="sidebar-label">Dashboard</span></button>`}${adminMenu}</nav>
-      <p class="sidebar-section-label mt-4 text-center text-[11px] text-slate-400">Portal v0.5.0c</p>
+      <p class="sidebar-section-label mt-4 text-center text-[11px] text-slate-400">Portal v0.5.0d</p>
     </aside>
     <section class="min-w-0 flex-1">
       <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur"><div class="flex min-h-[72px] items-center gap-2 px-4 sm:px-6">
@@ -133,7 +134,7 @@ function bindShellEvents(navigate) {
   const profileButton = document.querySelector('#profile-button'); const profileMenu = document.querySelector('#profile-menu');
   profileButton?.addEventListener('click', () => { const open = profileMenu?.classList.contains('hidden'); profileMenu?.classList.toggle('hidden', !open); profileButton.setAttribute('aria-expanded', String(Boolean(open))); }, { signal });
   document.addEventListener('click', (event) => { if (profileMenu && profileButton && !profileMenu.contains(event.target) && !profileButton.contains(event.target)) { profileMenu.classList.add('hidden'); profileButton.setAttribute('aria-expanded','false'); } }, { signal });
-  document.querySelector('#settings-button')?.addEventListener('click', async () => { const { openSettings } = await import('../settings/settings-shell.js'); await openSettings({ session: activeSession, initialTab: 'apps' }); }, { signal });
+  document.querySelector('#settings-button')?.addEventListener('click', async () => { const { openSettings } = await import('../settings/settings-shell.js'); await openSettings({ session: activeSession, initialTab: 'users' }); }, { signal });
   document.querySelector('#logout-button')?.addEventListener('click', async () => { await logout(); activeSession = null; showLogin(); }, { signal });
   document.querySelectorAll('[data-go-launcher], #all-apps-button').forEach((button) => button.addEventListener('click', () => navigate('dashboard', { historyMode: 'push' }), { signal }));
   document.querySelector('#toggle-sidebar')?.addEventListener('click', () => {

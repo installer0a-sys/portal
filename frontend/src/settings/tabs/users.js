@@ -8,6 +8,10 @@ let appRoleMaster = {};
 let query = '';
 let includeInactive = true;
 let abortController = null;
+const CACHE_KEY = 'portal.settings.users.v1';
+function readCache() { try { return JSON.parse(sessionStorage.getItem(CACHE_KEY) || 'null'); } catch { return null; } }
+function writeCache(value) { try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(value)); } catch { /* cache optional */ } }
+
 
 function escapeHtml(value) {
   return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
@@ -155,6 +159,7 @@ async function load() {
     users = userResult.data?.users || [];
     appRoleMaster = userResult.data?.appRoleMaster || {};
     apps = appResult.data?.apps || [];
+    writeCache({ users, appRoleMaster, apps, savedAt: Date.now() });
     render();
   } catch (error) {
     containerRef.innerHTML = `<div class="app-card border-red-200 bg-red-50 text-sm text-red-700">${escapeHtml(error.message)}</div>`;
@@ -176,5 +181,7 @@ function bind() {
 
 export async function mount(container) {
   containerRef = container;
+  const cached = readCache();
+  if (cached?.users && cached?.apps) { users = cached.users; appRoleMaster = cached.appRoleMaster || {}; apps = cached.apps; render(); load(); return; }
   await load();
 }

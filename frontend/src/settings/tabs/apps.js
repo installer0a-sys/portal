@@ -7,6 +7,10 @@ let query = '';
 let includeDeleted = false;
 let includeInactive = true;
 let abortController = null;
+const CACHE_KEY = 'portal.settings.apps.v1';
+function readCache() { try { return JSON.parse(sessionStorage.getItem(CACHE_KEY) || 'null'); } catch { return null; } }
+function writeCache(value) { try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(value)); } catch { /* cache optional */ } }
+
 
 function escapeHtml(value) {
   return String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
@@ -123,6 +127,7 @@ async function load() {
   try {
     const result = await callApi('apps.list', { includeDeleted, includeInactive }, { deduplicate: false });
     apps = result.data?.apps || [];
+    writeCache({ apps, savedAt: Date.now() });
     render();
   } catch (error) {
     containerRef.innerHTML = `<div class="app-card border-red-200 bg-red-50 text-sm text-red-700">${escapeHtml(error.message)}</div>`;
@@ -158,5 +163,7 @@ function bind() {
 
 export async function mount(container) {
   containerRef = container;
+  const cached = readCache();
+  if (cached?.apps) { apps = cached.apps; render(); load(); return; }
   await load();
 }

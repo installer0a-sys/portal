@@ -112,3 +112,9 @@
     max-height: 100dvh;
   }
 }
+
+
+/* v0.5.0d launcher and settings polish */
+@media (min-width: 1024px) {
+  .launcher-scroll-area { scrollbar-width: thin; scrollbar-gutter: stable; }
+}
