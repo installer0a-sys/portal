@@ -17,11 +17,11 @@ function getApps() { return (contextRef?.visibleManifests || []).filter((item) =
 function appInitial(app) { return String(app.shortTitle || app.title || app.id).slice(0,2).toUpperCase(); }
 function renderCard(app, favorites) {
   const favorite = favorites.includes(app.id);
-  return `<article class="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-500 hover:shadow-lg">
+  return `<article class="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-400 hover:shadow-lg">
     <button type="button" data-favorite-app="${escapeHtml(app.id)}" class="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-xl border border-slate-200 bg-white text-lg transition hover:bg-amber-50" aria-label="${favorite ? 'Hapus dari favorit' : 'Tambahkan ke favorit'}">${favorite ? '★' : '☆'}</button>
     <button type="button" data-open-app="${escapeHtml(app.route)}" data-app-id="${escapeHtml(app.id)}" class="block w-full text-left">
-      <div class="pr-10"><div class="flex flex-wrap items-center gap-2"><h4 class="text-lg font-bold text-slate-900 group-hover:text-brand-700">${escapeHtml(app.title)}</h4></div><p class="mt-2 min-h-10 text-sm leading-5 text-slate-500">${escapeHtml(app.description)}</p></div>
-      <span class="mt-5 inline-flex items-center gap-2 text-sm font-bold text-brand-700">Buka aplikasi <span aria-hidden="true">→</span></span>
+      <div class="pr-10"><div class="flex flex-wrap items-center gap-2"><h4 class="text-lg font-bold text-slate-900 group-hover:text-slate-900">${escapeHtml(app.title)}</h4></div><p class="mt-2 min-h-10 text-sm leading-5 text-slate-500">${escapeHtml(app.description)}</p></div>
+      <span class="mt-5 inline-flex items-center gap-2 text-sm font-bold text-slate-700">Buka aplikasi <span aria-hidden="true">→</span></span>
     </button>
   </article>`;
 }
@@ -36,18 +36,18 @@ function render() {
   const recentApps = recents.map((id) => apps.find((app) => app.id === id)).filter(Boolean).slice(0, 4);
   const username = contextRef.session?.user?.name || contextRef.session?.user?.username || contextRef.session?.profile?.user?.name || 'User';
 
-  mountedContainer.innerHTML = `<section class="launcher-layout space-y-6 lg:flex lg:h-full lg:flex-col lg:space-y-0">
+  mountedContainer.innerHTML = `<section class="launcher-layout space-y-6 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:space-y-0 lg:overflow-hidden">
     <div class="launcher-fixed-area space-y-5 lg:shrink-0 lg:pb-5">
-      <article class="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-5 text-white shadow-lg sm:p-6">
-        <div class="relative max-w-3xl"><p class="text-xs font-semibold text-slate-300">Portal Azko Kudus Sudirman</p><h2 class="mt-1 text-xl font-bold sm:text-2xl">Selamat datang, ${escapeHtml(username)}</h2><p class="mt-2 max-w-2xl text-xs leading-5 text-slate-300 sm:text-sm">Temukan aplikasi kerja dengan cepat. Modul hanya dimuat saat dibutuhkan.</p></div>
+      <article class="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-6 text-white shadow-xl sm:p-8">
+        <div class="relative max-w-3xl"><p class="text-sm font-semibold text-slate-300">Portal Azko Kudus Sudirman</p><h2 class="mt-2 text-2xl font-bold sm:text-4xl">Selamat datang, ${escapeHtml(username)}</h2><p class="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">Temukan aplikasi kerja Anda dengan cepat. Modul dimuat hanya saat dibutuhkan agar login dan perpindahan tetap ringan.</p></div>
       </article>
       <section class="app-card rounded-3xl p-4 sm:p-5">
-        <label class="relative block min-w-0"><span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">⌕</span><input id="portal-app-search" value="${escapeHtml(searchQuery)}" class="w-full rounded-2xl border border-slate-300 bg-slate-50 py-3 pl-11 pr-4 text-sm outline-none transition focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-50" placeholder="Cari aplikasi atau fungsi..."></label>
+        <label class="relative block min-w-0"><span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">⌕</span><input id="portal-app-search" value="${escapeHtml(searchQuery)}" class="w-full rounded-2xl border border-slate-300 bg-slate-50 py-3 pl-11 pr-4 text-sm outline-none transition focus:border-slate-400 focus:bg-white focus:ring-4 focus:ring-slate-100" placeholder="Cari aplikasi atau fungsi..."></label>
       </section>
     </div>
     <div class="launcher-scroll-area space-y-7 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2 lg:pb-6">
       ${favoriteApps.length ? `<section><div class="mb-3"><h3 class="text-lg font-bold text-slate-900">Favorit</h3><p class="text-sm text-slate-500">Aplikasi pilihan Anda.</p></div><div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">${favoriteApps.map((app) => renderCard(app, favorites)).join('')}</div></section>` : ''}
-      ${recentApps.length ? `<section><div class="mb-3"><h3 class="text-lg font-bold text-slate-900">Terakhir dibuka</h3><p class="text-sm text-slate-500">Akses kembali aplikasi terbaru.</p></div><div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">${recentApps.map((app) => `<button type="button" data-open-app="${escapeHtml(app.route)}" data-app-id="${escapeHtml(app.id)}" class="app-card text-left transition hover:border-brand-500"><strong class="block truncate text-sm text-slate-900">${escapeHtml(app.title)}</strong></button>`).join('')}</div></section>` : ''}
+      ${recentApps.length ? `<section><div class="mb-3"><h3 class="text-lg font-bold text-slate-900">Terakhir dibuka</h3><p class="text-sm text-slate-500">Akses kembali aplikasi terbaru.</p></div><div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">${recentApps.map((app) => `<button type="button" data-open-app="${escapeHtml(app.route)}" data-app-id="${escapeHtml(app.id)}" class="app-card text-left transition hover:border-slate-400"><strong class="block truncate text-sm text-slate-900">${escapeHtml(app.title)}</strong></button>`).join('')}</div></section>` : ''}
       <section><div class="mb-3"><h3 class="text-lg font-bold text-slate-900">Semua aplikasi</h3><p class="text-sm text-slate-500">${visible.length} dari ${apps.length} aplikasi ditampilkan.</p></div><div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">${visible.map((app) => renderCard(app, favorites)).join('') || '<article class="app-card rounded-3xl text-sm text-slate-500">Tidak ada aplikasi yang cocok dengan pencarian.</article>'}</div></section>
     </div>
   </section>`;

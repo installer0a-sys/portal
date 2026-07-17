@@ -118,3 +118,26 @@
 @media (min-width: 1024px) {
   .launcher-scroll-area { scrollbar-width: thin; scrollbar-gutter: stable; }
 }
+
+
+/* v0.5.0f app identity and single-scroll layout */
+.app-workspace .text-brand-500,
+.app-workspace .text-brand-600,
+.app-workspace .text-brand-700 {
+  color: #0f172a !important;
+}
+.app-workspace .hover\:text-brand-600:hover,
+.app-workspace .hover\:text-brand-700:hover {
+  color: #0f172a !important;
+}
+.app-workspace .bg-brand-50 {
+  background-color: #f1f5f9 !important;
+}
+.app-workspace .border-brand-500 {
+  border-color: #94a3b8 !important;
+}
+@media (min-width: 1024px) {
+  .launcher-layout,
+  .launcher-scroll-area { min-height: 0; }
+  .launcher-scroll-area { overscroll-behavior: contain; }
+}
