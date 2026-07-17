@@ -37,15 +37,15 @@ function render() {
   const username = contextRef.session?.user?.name || contextRef.session?.user?.username || contextRef.session?.profile?.user?.name || 'User';
 
   mountedContainer.innerHTML = `<section class="launcher-layout space-y-6 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:space-y-0 lg:overflow-hidden">
-    <div class="launcher-fixed-area space-y-5 lg:shrink-0 lg:pb-5">
+    <div class="launcher-fixed-area lg:shrink-0 lg:pb-5">
       <article class="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-6 text-white shadow-xl sm:p-8">
         <div class="relative max-w-3xl"><p class="text-sm font-semibold text-slate-300">Portal Azko Kudus Sudirman</p><h2 class="mt-2 text-2xl font-bold sm:text-4xl">Selamat datang, ${escapeHtml(username)}</h2><p class="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">Temukan aplikasi kerja Anda dengan cepat. Modul dimuat hanya saat dibutuhkan agar login dan perpindahan tetap ringan.</p></div>
       </article>
+    </div>
+    <div class="launcher-scroll-area space-y-7 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2 lg:pb-6">
       <section class="app-card rounded-3xl p-4 sm:p-5">
         <label class="relative block min-w-0"><span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">⌕</span><input id="portal-app-search" value="${escapeHtml(searchQuery)}" class="w-full rounded-2xl border border-slate-300 bg-slate-50 py-3 pl-11 pr-4 text-sm outline-none transition focus:border-slate-400 focus:bg-white focus:ring-4 focus:ring-slate-100" placeholder="Cari aplikasi atau fungsi..."></label>
       </section>
-    </div>
-    <div class="launcher-scroll-area space-y-7 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2 lg:pb-6">
       ${favoriteApps.length ? `<section><div class="mb-3"><h3 class="text-lg font-bold text-slate-900">Favorit</h3><p class="text-sm text-slate-500">Aplikasi pilihan Anda.</p></div><div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">${favoriteApps.map((app) => renderCard(app, favorites)).join('')}</div></section>` : ''}
       ${recentApps.length ? `<section><div class="mb-3"><h3 class="text-lg font-bold text-slate-900">Terakhir dibuka</h3><p class="text-sm text-slate-500">Akses kembali aplikasi terbaru.</p></div><div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">${recentApps.map((app) => `<button type="button" data-open-app="${escapeHtml(app.route)}" data-app-id="${escapeHtml(app.id)}" class="app-card text-left transition hover:border-slate-400"><strong class="block truncate text-sm text-slate-900">${escapeHtml(app.title)}</strong></button>`).join('')}</div></section>` : ''}
       <section><div class="mb-3"><h3 class="text-lg font-bold text-slate-900">Semua aplikasi</h3><p class="text-sm text-slate-500">${visible.length} dari ${apps.length} aplikasi ditampilkan.</p></div><div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">${visible.map((app) => renderCard(app, favorites)).join('') || '<article class="app-card rounded-3xl text-sm text-slate-500">Tidak ada aplikasi yang cocok dengan pencarian.</article>'}</div></section>

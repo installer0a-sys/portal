@@ -19,7 +19,6 @@ let pwaRegistration = null;
 let shellAbortController = null;
 let currentManifest = null;
 let navigationSequence = 0;
-let navigationPromise = Promise.resolve();
 appRegistry.registerMany(portalAppManifests);
 
 const icon = (name) => ({
@@ -84,7 +83,7 @@ function renderAppShell(session, manifest) {
     <aside id="app-sidebar" class="app-sidebar ${collapsed ? 'is-collapsed' : ''} fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-200 bg-white p-4 lg:sticky lg:top-0 lg:h-screen">
       <div class="sidebar-brand-text border-b border-slate-200 pb-4"><p class="truncate text-base font-bold text-slate-900">${escapeHtml(manifest.title)}</p><p class="mt-1 truncate text-xs text-slate-500"><button data-go-launcher class="hover:text-slate-900">Portal</button> / ${escapeHtml(manifest.shortTitle || manifest.title)} / <span id="breadcrumb-page">Dashboard</span></p></div>
       <nav class="mt-4 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">${menu || `<button class="sidebar-link flex min-h-11 items-center gap-3 rounded-xl bg-brand-50 px-3 text-sm font-semibold text-brand-700">${icon('home')}<span class="sidebar-label">Dashboard</span></button>`}${adminMenu}</nav>
-      <p class="sidebar-section-label mt-4 text-center text-[11px] text-slate-400">Portal v0.5.0g</p>
+      <p class="sidebar-section-label mt-4 text-center text-[11px] text-slate-400">Portal v0.5.0h</p>
     </aside>
     <section class="app-workspace min-w-0 flex-1 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden">
       <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur"><div class="flex min-h-[72px] items-center gap-2 px-4 sm:px-6">
@@ -110,41 +109,47 @@ function renderGateMessage(manifest, gate) {
 function registerRoutes() { appRegistry.list().forEach((manifest) => router.register(manifest.route, manifest.loader)); }
 function createNavigator() {
   registerRoutes();
-  return async (route, options = {}) => {
+
+  const navigate = async (route, options = {}) => {
     const sequence = ++navigationSequence;
-    const run = async () => {
-      const manifest = appRegistry.getByRoute(route) || appRegistry.getByRoute('dashboard');
-      document.documentElement.classList.add('portal-navigating');
-      currentManifest = manifest;
-      if (isLauncher(manifest)) renderLauncherShell(activeSession); else renderAppShell(activeSession, manifest);
-      bindShellEvents(navigate);
-      const container = document.querySelector('#portal-content');
-      if (!isLauncher(manifest)) {
-        const gate = permissionEngine.getAppGate(activeSession, manifest.id);
-        if (!gate.allowed) {
-          renderGateMessage(manifest, gate);
-          bindShellEvents(navigate);
-          history.replaceState(null, '', `#${manifest.route}`);
-          return;
-        }
+    const manifest = appRegistry.getByRoute(route) || appRegistry.getByRoute('dashboard');
+
+    // Ganti shell segera. Proses unmount/mount modul tidak boleh menahan respons tombol navigasi.
+    document.documentElement.classList.add('portal-navigating');
+    currentManifest = manifest;
+    if (isLauncher(manifest)) renderLauncherShell(activeSession); else renderAppShell(activeSession, manifest);
+    bindShellEvents(navigate);
+
+    const container = document.querySelector('#portal-content');
+    if (!isLauncher(manifest)) {
+      const gate = permissionEngine.getAppGate(activeSession, manifest.id);
+      if (!gate.allowed) {
+        renderGateMessage(manifest, gate);
+        history.replaceState(null, '', `#${manifest.route}`);
+        requestAnimationFrame(() => document.documentElement.classList.remove('portal-navigating'));
+        return;
       }
-      if (sequence !== navigationSequence) return;
+    }
+
+    try {
       await router.navigate(manifest.route, {
-        container, mode: 'portal', session: activeSession, manifest,
+        container,
+        mode: 'portal',
+        session: activeSession,
+        manifest,
         internalMenu: permissionEngine.filterInternalMenu(activeSession, manifest.internalMenu || [], manifest.id),
         visibleManifests: getVisibleManifests(),
         navigate,
         historyMode: options.historyMode || 'push'
       });
-    };
-    navigationPromise = navigationPromise.catch(() => {}).then(run).finally(() => {
+    } finally {
       if (sequence === navigationSequence) {
         requestAnimationFrame(() => document.documentElement.classList.remove('portal-navigating'));
       }
-    });
-    return navigationPromise;
+    }
   };
-  async function navigate(route, options) { return createNavigator()(route, options); }
+
+  return navigate;
 }
 
 function bindShellEvents(navigate) {
