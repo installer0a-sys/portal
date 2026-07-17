@@ -36,11 +36,12 @@ function listManagedUsers_(context, payload) {
     ? sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues()
     : [];
 
-  const roleMap = getManagedUserRoleMap_();
+  const accessMap = getManagedUserAppAccessMap_();
   const users = rows.map(function(row) {
     const item = rowToObject_(headers, row);
     const user = sanitizeManagedUser_(item);
-    user.appRoles = roleMap[user.userId] || {};
+    user.appAccess = accessMap[user.userId] || {};
+    user.appRoles = Object.keys(user.appAccess).reduce(function(result, appId) { result[appId] = user.appAccess[appId].role || ''; return result; }, {});
     return user;
   }).filter(function(user) {
     if (!includeInactive && user.status !== 'ACTIVE') return false;
@@ -52,23 +53,17 @@ function listManagedUsers_(context, payload) {
     return String(left.displayName || left.username).localeCompare(String(right.displayName || right.username));
   });
 
-  return success_({ users: users, total: users.length }, 'Daftar user berhasil dimuat.');
+  return success_({ users: users, total: users.length, appRoleMaster: getAppRoleMasterMap_() }, 'Daftar user berhasil dimuat.');
 }
 
 function getManagedUserRoleMap_() {
-  const sheet = getPortalSpreadsheet_().getSheetByName('USER_APP_ROLES');
+  const accessMap = getManagedUserAppAccessMap_();
   const result = {};
-  if (!sheet || sheet.getLastRow() < 2) return result;
-  const headers = getSheetHeaders_(sheet);
-  const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
-  rows.forEach(function(row) {
-    const item = rowToObject_(headers, row);
-    if (String(item.STATUS || 'ACTIVE').toUpperCase() !== 'ACTIVE') return;
-    const userId = String(item.USER_ID || '');
-    const appId = String(item.APP_ID || '');
-    if (!userId || !appId) return;
-    if (!result[userId]) result[userId] = {};
-    result[userId][appId] = String(item.ROLE || '').toUpperCase();
+  Object.keys(accessMap).forEach(function(userId) {
+    result[userId] = {};
+    Object.keys(accessMap[userId]).forEach(function(appId) {
+      result[userId][appId] = accessMap[userId][appId].role || '';
+    });
   });
   return result;
 }
@@ -102,10 +97,11 @@ function createManagedUser_(context, payload, requestId) {
       displayName: input.displayName,
       status: normalizeUserStatus_(input.status || 'ACTIVE')
     });
-    replaceManagedUserAppRoles_(user.userId, input.appRoles || {});
+    replaceManagedUserAppAccess_(user.userId, normalizeIncomingAppAccess_(input));
     writeAuditLog_({ requestId: requestId, userId: context.user.USER_ID, action: 'users.create', status: 'SUCCESS', details: { targetUserId: user.userId, username: user.username } });
     const saved = findUserById_(user.userId);
     const result = sanitizeManagedUser_(saved.data);
+    result.appAccess = getManagedUserAppAccessMap_()[user.userId] || {};
     result.appRoles = getManagedUserRoleMap_()[user.userId] || {};
     return success_({ user: result }, 'User berhasil ditambahkan.');
   } finally {
@@ -140,10 +136,11 @@ function updateManagedUser_(context, payload, requestId) {
       status: status,
       bumpSessionVersion: status !== String(record.data.STATUS || '').toUpperCase() || portalRole !== String(record.data.PORTAL_ROLE || '').toUpperCase()
     });
-    if (Object.prototype.hasOwnProperty.call(values, 'appRoles')) replaceManagedUserAppRoles_(userId, values.appRoles || {});
+    if (Object.prototype.hasOwnProperty.call(values, 'appAccess') || Object.prototype.hasOwnProperty.call(values, 'appRoles')) replaceManagedUserAppAccess_(userId, normalizeIncomingAppAccess_(values));
     writeAuditLog_({ requestId: requestId, userId: context.user.USER_ID, action: 'users.update', status: 'SUCCESS', details: { targetUserId: userId, portalRole: portalRole, status: status } });
     const saved = findUserById_(userId);
     const result = sanitizeManagedUser_(saved.data);
+    result.appAccess = getManagedUserAppAccessMap_()[userId] || {};
     result.appRoles = getManagedUserRoleMap_()[userId] || {};
     return success_({ user: result }, 'User berhasil diperbarui.');
   } finally {
@@ -220,40 +217,16 @@ function revokeManagedUserSessions_(context, payload, requestId) {
   return success_(null, 'Seluruh sesi user berhasil dicabut.');
 }
 
+function normalizeIncomingAppAccess_(input) {
+  if (input && input.appAccess && typeof input.appAccess === 'object') return input.appAccess;
+  const legacy = input && input.appRoles || {};
+  const result = {};
+  Object.keys(legacy).forEach(function(appId) {
+    result[appId] = { access: true, status: 'ACTIVE', role: legacy[appId] || '' };
+  });
+  return result;
+}
+
 function replaceManagedUserAppRoles_(userId, appRoles) {
-  const sheet = getPortalSpreadsheet_().getSheetByName('USER_APP_ROLES');
-  const headers = getSheetHeaders_(sheet);
-  const rows = sheet.getLastRow() >= 2
-    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues()
-    : [];
-  const now = new Date();
-  const incoming = appRoles || {};
-  const existingByApp = {};
-
-  rows.forEach(function(row, index) {
-    const item = rowToObject_(headers, row);
-    if (String(item.USER_ID) === String(userId)) existingByApp[String(item.APP_ID)] = { rowNumber: index + 2, data: item };
-  });
-
-  Object.keys(existingByApp).forEach(function(appId) {
-    const role = String(incoming[appId] || '').trim().toUpperCase();
-    const record = existingByApp[appId];
-    const statusIndex = headers.indexOf('STATUS');
-    const roleIndex = headers.indexOf('ROLE');
-    const updatedIndex = headers.indexOf('UPDATED_AT');
-    if (role) {
-      if (roleIndex >= 0) sheet.getRange(record.rowNumber, roleIndex + 1).setValue(role);
-      if (statusIndex >= 0) sheet.getRange(record.rowNumber, statusIndex + 1).setValue('ACTIVE');
-    } else if (statusIndex >= 0) {
-      sheet.getRange(record.rowNumber, statusIndex + 1).setValue('INACTIVE');
-    }
-    if (updatedIndex >= 0) sheet.getRange(record.rowNumber, updatedIndex + 1).setValue(now);
-  });
-
-  Object.keys(incoming).forEach(function(appId) {
-    const role = String(incoming[appId] || '').trim().toUpperCase();
-    if (!role || existingByApp[appId]) return;
-    const record = { USER_ID: userId, APP_ID: appId, ROLE: role, STATUS: 'ACTIVE', CREATED_AT: now, UPDATED_AT: now };
-    sheet.appendRow(headers.map(function(header) { return Object.prototype.hasOwnProperty.call(record, header) ? record[header] : ''; }));
-  });
+  replaceManagedUserAppAccess_(userId, normalizeIncomingAppAccess_({ appRoles: appRoles || {} }));
 }
