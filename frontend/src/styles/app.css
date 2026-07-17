@@ -76,3 +76,32 @@
   .app-sidebar.is-mobile-open { transform: translateX(0); }
   .app-sidebar .sidebar-label, .app-sidebar .sidebar-brand-text, .app-sidebar .sidebar-section-label { display: initial !important; }
 }
+
+
+/* v0.5.0a mobile shell fixes */
+#portal-settings-root {
+  position: relative;
+  z-index: 120;
+}
+
+#settings-content {
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scrollbar-gutter: stable;
+}
+
+@media (max-width: 639px) {
+  #profile-menu {
+    position: fixed;
+    top: 4.75rem;
+    right: 1rem;
+    left: auto;
+    max-height: calc(100dvh - 5.75rem);
+    overflow-y: auto;
+  }
+
+  #portal-settings-root [data-settings-backdrop] > section {
+    height: 100dvh;
+    max-height: 100dvh;
+  }
+}

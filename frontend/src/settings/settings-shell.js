@@ -25,7 +25,7 @@ function renderShell() {
   const current = tabs.find((item) => item.id === activeTab) || tabs[0];
   root.innerHTML = `
     <div class="fixed inset-0 z-[120] bg-slate-950/50 backdrop-blur-sm" data-settings-backdrop>
-      <section class="absolute inset-0 flex flex-col overflow-hidden bg-slate-50 sm:inset-3 sm:rounded-[28px] sm:border sm:border-white/60 sm:shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <section class="absolute inset-0 flex min-h-0 flex-col overflow-hidden bg-slate-50 sm:inset-3 sm:rounded-[28px] sm:border sm:border-white/60 sm:shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="settings-title">
         <header class="flex min-h-16 items-center gap-3 border-b border-slate-200 bg-white px-4 sm:px-6">
           <div class="grid h-10 w-10 place-items-center rounded-2xl bg-blue-600 text-white shadow-sm">⚙</div>
           <div class="min-w-0 flex-1">
@@ -36,8 +36,8 @@ function renderShell() {
           <button type="button" data-settings-close class="app-button-secondary min-h-10 px-3" aria-label="Tutup Settings">×</button>
         </header>
 
-        <div class="min-h-0 flex-1 lg:grid lg:grid-cols-[270px_1fr]">
-          <aside class="border-b border-slate-200 bg-white p-3 lg:border-b-0 lg:border-r lg:p-4">
+        <div class="flex min-h-0 flex-1 flex-col overflow-hidden lg:grid lg:grid-cols-[270px_1fr]">
+          <aside class="shrink-0 border-b border-slate-200 bg-white p-3 lg:min-h-0 lg:border-b-0 lg:border-r lg:p-4">
             <nav class="flex gap-2 overflow-x-auto lg:block lg:space-y-2" aria-label="Menu Settings">
               ${tabs.map((tab) => `
                 <button type="button" data-settings-tab="${tab.id}" class="min-w-max rounded-2xl px-4 py-3 text-left transition lg:w-full ${tab.id === activeTab ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}">
@@ -47,7 +47,7 @@ function renderShell() {
             </nav>
           </aside>
 
-          <main class="min-h-0 overflow-auto p-4 sm:p-6" id="settings-content">
+          <main class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-6" id="settings-content" tabindex="0">
             <div class="mb-5">
               <h3 class="text-xl font-bold text-slate-900">${escapeHtml(current.label)}</h3>
               <p class="mt-1 text-sm text-slate-500">${escapeHtml(current.description)}</p>
