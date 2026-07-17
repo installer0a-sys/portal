@@ -12,7 +12,7 @@ let scheduleData = null;
 let abortController = null;
 let viewRevision = 0;
 
-const CACHE_PREFIX = 'portal.appA.v055r3.';
+const CACHE_PREFIX = 'portal.appA.v056.';
 const escapeHtml = (value) => String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
 const readCache = (key) => { try { return JSON.parse(localStorage.getItem(CACHE_PREFIX + key) || 'null'); } catch { return null; } };
 const writeCache = (key, value) => { try { localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ value, savedAt: Date.now() })); } catch {} };
@@ -100,9 +100,14 @@ function scheduleTable(data) {
 function scheduleRow(row, count) {
   return `<tr>${Array.from({length:count},(_,index)=>`<td class="border-b border-r border-slate-200 bg-white px-2 py-2 text-center text-slate-700 ${index<4?`a542-stick a542-col-${index+1}`:''}">${escapeHtml(row[index] || '')}</td>`).join('')}</tr>`;
 }
+function scopeBadge(data) {
+  const scope = data?.accessScope;
+  if (!scope?.label || scope.mode === 'ALL') return '';
+  return `<span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">${escapeHtml(scope.label)}</span>`;
+}
 function renderSchedule(data) {
-  const actions = `<span class="text-sm font-semibold text-slate-500">Bulan:</span><select data-sheet-select class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold">${sheetOptions(data)}</select><button data-screenshot class="app-button-secondary">Screenshot</button><button data-refresh class="app-button-secondary">Refresh</button>${canEdit() ? '<button data-edit-hint class="app-button-primary">Edit Jadwal</button>' : ''}`;
-  host.innerHTML = `<section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">${pageHeader(pageTitle(), data.sheetName || 'Jadwal A542', actions)}${scheduleTable(data)}</section>`;
+  const actions = `<span class="text-sm font-semibold text-slate-500">Bulan:</span><select data-sheet-select class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold">${sheetOptions(data)}</select><button data-screenshot class="app-button-secondary">Screenshot</button><button data-refresh class="app-button-secondary">Refresh</button>${data.canEdit ? '<button data-edit-hint class="app-button-primary">Edit Jadwal</button>' : ''}`;
+  host.innerHTML = `<section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">${pageHeader(pageTitle(), `${data.sheetName || 'Jadwal A542'}${data.accessScope?.label ? ' · ' + data.accessScope.label : ''}`, actions)}${scheduleTable(data)}</section>`;
   bindSchedule();
 }
 async function loadSchedule(force = false, revision = viewRevision, page = activePage) {
@@ -132,7 +137,7 @@ function bindSchedule() {
   host.querySelector('[data-sheet-select]')?.addEventListener('change', (event) => { selectedSheet = event.target.value; void renderPage({ force: true, keepPage: true }); }, { signal });
   host.querySelector('[data-refresh]')?.addEventListener('click', () => renderPage({ force: true, keepPage: true }), { signal });
   host.querySelector('[data-screenshot]')?.addEventListener('click', () => screenshotTarget('#jadwal-a542-capture', `Jadwal_A542_${scheduleData?.sheetName || 'jadwal'}`), { signal });
-  host.querySelector('[data-edit-hint]')?.addEventListener('click', () => toast.info('Editor jadwal akan diaktifkan setelah pembatasan NIP dan zona selesai dipindahkan.'), { signal });
+  host.querySelector('[data-edit-hint]')?.addEventListener('click', () => toast.info(scheduleData?.accessScope?.label ? `Hak edit aktif untuk ${scheduleData.accessScope.label}. Editor detail diterapkan pada fase edit berikutnya.` : 'Hak edit mengikuti role aplikasi.'), { signal });
 }
 
 async function loadScript(src, globalName) {

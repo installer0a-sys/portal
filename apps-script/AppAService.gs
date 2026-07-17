@@ -83,22 +83,121 @@ function appAGroupScheduleRows_(data, config) {
   return { zones: zones, groups: groups, zoneIndex: zoneIndex, departmentIndex: departmentIndex };
 }
 
+
+function appANormalizeText_(value) {
+  return String(value == null ? '' : value).trim().toUpperCase();
+}
+
+function appAUserIdentity_(context, appContext) {
+  const user = context.user || {};
+  const nip = String(user.USERNAME || user.USER_ID || '').trim();
+  const identity = { nip: nip, name: String(user.DISPLAY_NAME || user.USERNAME || '').trim(), zone: '', department: '', position: '' };
+  const config = appContext.config || {};
+  const employeeSheetName = String(config.CONF_KAR_SHEET || '').trim();
+  if (!employeeSheetName) return identity;
+  const sheet = appContext.spreadsheet.getSheetByName(employeeSheetName);
+  if (!sheet) return identity;
+  const values = sheet.getDataRange().getDisplayValues();
+  if (values.length < 2) return identity;
+  const headers = values[0].map(function(value) { return String(value || '').trim(); });
+  function headerIndex(configKey, patterns) {
+    const configured = String(config[configKey] || '').trim();
+    if (configured) {
+      const exact = headers.map(appANormalizeText_).indexOf(appANormalizeText_(configured));
+      if (exact >= 0) return exact;
+    }
+    return appAFindHeaderIndex_(headers, patterns, -1);
+  }
+  const nipIndex = headerIndex('CONF_KAR_NIP', ['NIP','USERNAME']);
+  const nameIndex = headerIndex('CONF_KAR_NAMA', ['NAMA']);
+  const deptIndex = headerIndex('CONF_KAR_DEPT', ['DEPARTEMEN','DEPARTMENT']);
+  const zoneIndex = headerIndex('CONF_KAR_ZONA', ['ZONA']);
+  const positionIndex = headerIndex('CONF_KAR_JABATAN', ['JABATAN','ROLE']);
+  if (nipIndex < 0) return identity;
+  const target = appANormalizeText_(nip);
+  const row = values.slice(1).find(function(item) { return appANormalizeText_(item[nipIndex]) === target; });
+  if (!row) return identity;
+  identity.name = nameIndex >= 0 ? String(row[nameIndex] || identity.name).trim() : identity.name;
+  identity.department = deptIndex >= 0 ? String(row[deptIndex] || '').trim() : '';
+  identity.zone = zoneIndex >= 0 ? String(row[zoneIndex] || '').trim() : '';
+  identity.position = positionIndex >= 0 ? String(row[positionIndex] || '').trim() : '';
+  return identity;
+}
+
+function appAViewScope_(context, appContext, view) {
+  const roles = getAppARoles_(context);
+  const identity = appAUserIdentity_(context, appContext);
+  const isAdmin = roles.indexOf('ADMIN') >= 0;
+  const isReadOnly = roles.length === 1 && roles[0] === 'USER';
+  const scope = { mode: 'ALL', roles: roles, identity: identity, readOnly: isReadOnly, canEdit: !isReadOnly, label: 'Semua data' };
+  if (isAdmin || isReadOnly) return scope;
+  if (view === 'jadwal-spv') {
+    scope.mode = 'OWN_NIP';
+    scope.label = identity.nip ? 'Jadwal NIP ' + identity.nip : 'Identitas NIP belum ditemukan';
+  } else if (view === 'jadwal-all') {
+    scope.mode = identity.zone ? 'OWN_ZONE' : 'OWN_NIP';
+    scope.label = identity.zone ? 'Zona ' + identity.zone : (identity.nip ? 'NIP ' + identity.nip : 'Identitas belum ditemukan');
+  } else if (view === 'dop-dos') {
+    scope.mode = identity.zone ? 'OWN_ZONE' : 'OWN_NIP';
+    scope.label = identity.zone ? 'DOP/DOS zona ' + identity.zone : 'DOP/DOS sesuai identitas';
+  } else if (view === 'jadwal-lama') {
+    scope.mode = identity.zone ? 'OWN_ZONE' : 'OWN_NIP';
+    scope.label = identity.zone ? 'Arsip zona ' + identity.zone : 'Arsip sesuai identitas';
+  }
+  return scope;
+}
+
+function appAApplyScope_(data, scope) {
+  if (!scope || scope.mode === 'ALL') return data.rows;
+  const headers = data.head1 || [];
+  const nipIndex = appAFindHeaderIndex_(headers, ['NIP'], 0);
+  const zoneIndex = appAFindHeaderIndex_(headers, ['ZONA'], 3);
+  const targetNip = appANormalizeText_(scope.identity && scope.identity.nip);
+  const targetZone = appANormalizeText_(scope.identity && scope.identity.zone);
+  return data.rows.filter(function(row) {
+    if (scope.mode === 'OWN_NIP') return targetNip && appANormalizeText_(row[nipIndex]) === targetNip;
+    if (scope.mode === 'OWN_ZONE') return targetZone && appANormalizeText_(row[zoneIndex]) === targetZone;
+    return true;
+  });
+}
+
+function appAResolveViewSheet_(appContext, view, requestedSheet) {
+  if (view === 'jadwal-spv') {
+    const configured = String(appContext.config.CONF_SPV_SHEET || '').trim();
+    if (configured && appContext.spreadsheet.getSheetByName(configured)) return configured;
+  }
+  if (view === 'dop-dos') {
+    const configured = String(appContext.config.CONF_DOP_SHEET || '').trim();
+    if (configured && appContext.spreadsheet.getSheetByName(configured)) return configured;
+  }
+  return requestedSheet;
+}
+
 function appAScheduleList_(context, payload) {
   const appContext = getAppAContext_(context);
-  const data = appAReadScheduleData_(appContext, payload && payload.sheetName, payload && payload.limit);
+  const view = String(payload && payload.view || 'jadwal-all').trim();
+  const requestedSheet = appAResolveViewSheet_(appContext, view, payload && payload.sheetName);
+  const data = appAReadScheduleData_(appContext, requestedSheet, payload && payload.limit);
+  const scope = appAViewScope_(context, appContext, view);
+  data.rows = appAApplyScope_(data, scope);
+  data.total = data.rows.length;
   const grouped = appAGroupScheduleRows_(data, appContext.config);
-  writeAuditLog_({ requestId: payload && payload.requestId || '', userId: context.user.USER_ID, action: 'appA.schedule.view', status: 'SUCCESS', details: { sheetName: data.sheetName, rows: data.rows.length } });
+  writeAuditLog_({ requestId: payload && payload.requestId || '', userId: context.user.USER_ID, action: 'appA.schedule.view', status: 'SUCCESS', details: { view: view, sheetName: data.sheetName, rows: data.rows.length, scope: scope.mode } });
   return success_({
-    appName: 'Jadwal A542', sheetName: data.sheetName, sheets: data.sheets,
+    appName: 'Jadwal A542', view: view, sheetName: data.sheetName, sheets: data.sheets,
     head1: data.head1, head2: data.head2, headers: data.head1, rows: data.rows,
     zones: grouped.zones, groupedRows: grouped.groups, total: data.total,
-    roles: getAppARoles_(context), readOnly: getAppARoles_(context).indexOf('USER') >= 0 && getAppARoles_(context).length === 1
+    roles: scope.roles, readOnly: scope.readOnly, canEdit: scope.canEdit,
+    accessScope: { mode: scope.mode, label: scope.label, identity: scope.identity }
   }, 'Data Jadwal A542 berhasil dimuat.');
 }
 
 function appADashboard_(context, payload) {
   const appContext = getAppAContext_(context);
   const data = appAReadScheduleData_(appContext, payload && payload.sheetName, 1500);
+  const scope = appAViewScope_(context, appContext, 'dashboard');
+  data.rows = appAApplyScope_(data, scope);
+  data.total = data.rows.length;
   const grouped = appAGroupScheduleRows_(data, appContext.config);
   const offset = Math.max(0, Math.min(2, Number(payload && payload.dayOffset || 0)));
   const now = new Date();
@@ -129,7 +228,7 @@ function appADashboard_(context, payload) {
   return success_({
     sheetName: data.sheetName, sheets: data.sheets, dateLabel: Utilities.formatDate(now, Session.getScriptTimeZone() || 'Asia/Jakarta', 'dd MMMM yyyy'),
     dayOffset: offset, dayIndex: dayIndex, zones: grouped.zones, groups: dashboardGroups,
-    totalEmployees: rows.length, roles: getAppARoles_(context)
+    totalEmployees: rows.length, roles: scope.roles, accessScope: { mode: scope.mode, label: scope.label, identity: scope.identity }
   }, 'Dashboard Jadwal A542 berhasil dimuat.');
 }
 
