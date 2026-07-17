@@ -1,4 +1,4 @@
-const PORTAL_VERSION = '0.6.0';
+const PORTAL_VERSION = '0.6.1';
 
 function doGet() {
   return jsonOutput_(success_({
@@ -25,9 +25,7 @@ function doPost(e) {
     const safeMessage = code === 'SERVER_ERROR'
       ? 'Terjadi kesalahan pada server.'
       : String(error && error.message || 'Permintaan gagal.');
-
     writeSystemErrorSafe_(error, request);
-
     return jsonOutput_(failure_(code, safeMessage, {
       durationMs: Date.now() - started,
       version: PORTAL_VERSION,

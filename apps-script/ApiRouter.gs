@@ -20,7 +20,7 @@ function routeApi_(request) {
     }
     case 'appA.schedule.list': {
       const context = validateSession_(sessionToken);
-      return appAScheduleList_(context, payload);
+      return appAScheduleListV061_(context, payload);
     }
     case 'appA.schedule.editor.get': {
       const context = validateSession_(sessionToken);
