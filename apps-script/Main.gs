@@ -1,4 +1,4 @@
-const PORTAL_VERSION = '0.5.10';
+const PORTAL_VERSION = '0.6.0';
 
 function doGet() {
   return jsonOutput_(success_({
@@ -14,13 +14,11 @@ function doPost(e) {
   try {
     request = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     const result = routeApi_(request);
-
     result.meta = Object.assign({}, result.meta, {
       durationMs: Date.now() - started,
       version: PORTAL_VERSION,
       requestId: request.requestId || ''
     });
-
     return jsonOutput_(result);
   } catch (error) {
     const code = String(error && error.code || 'SERVER_ERROR');
@@ -43,7 +41,6 @@ function writeSystemErrorSafe_(error, request) {
   try {
     const sheet = getPortalSpreadsheet_().getSheetByName('SYSTEM_LOG');
     if (!sheet) return;
-
     const headers = getSheetHeaders_(sheet);
     const record = {
       TIMESTAMP: new Date(),
@@ -56,17 +53,13 @@ function writeSystemErrorSafe_(error, request) {
         code: String(error && error.code || 'SERVER_ERROR')
       })
     };
-
     sheet.appendRow(headers.map(function(header) {
-      return Object.prototype.hasOwnProperty.call(record, header)
-        ? record[header]
-        : '';
+      return Object.prototype.hasOwnProperty.call(record, header) ? record[header] : '';
     }));
   } catch (ignored) {}
 }
 
 function jsonOutput_(value) {
-  return ContentService
-    .createTextOutput(JSON.stringify(value))
+  return ContentService.createTextOutput(JSON.stringify(value))
     .setMimeType(ContentService.MimeType.JSON);
 }
