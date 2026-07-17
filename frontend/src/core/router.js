@@ -39,14 +39,17 @@ export const router = {
       container: context.container,
       context: {
         ...context,
-        navigate: (
-          target,
-          options = {}
-        ) =>
-          this.navigate(target, {
-            ...context,
-            ...options
-          })
+        navigate:
+          typeof context.navigate === 'function'
+            ? context.navigate
+            : (
+                target,
+                options = {}
+              ) =>
+                this.navigate(target, {
+                  ...context,
+                  ...options
+                })
       }
     });
 

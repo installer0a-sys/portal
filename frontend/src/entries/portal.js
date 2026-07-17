@@ -122,7 +122,9 @@ function createNavigator() {
     await router.navigate(manifest.route, {
       container, mode: 'portal', session: activeSession, manifest,
       internalMenu: permissionEngine.filterInternalMenu(activeSession, manifest.internalMenu || [], manifest.id),
-      visibleManifests: getVisibleManifests(), historyMode: options.historyMode || 'push'
+      visibleManifests: getVisibleManifests(),
+      navigate,
+      historyMode: options.historyMode || 'push'
     });
   };
   async function navigate(route, options) { return createNavigator()(route, options); }
