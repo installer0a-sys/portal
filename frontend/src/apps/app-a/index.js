@@ -12,7 +12,7 @@ let scheduleData = null;
 let abortController = null;
 let viewRevision = 0;
 
-const CACHE_PREFIX = 'portal.appA.v058.';
+const CACHE_PREFIX = 'portal.appA.v063.';
 const escapeHtml = (value) => String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
 const readCache = (key) => { try { return JSON.parse(localStorage.getItem(CACHE_PREFIX + key) || 'null'); } catch { return null; } };
 const writeCache = (key, value) => { try { localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ value, savedAt: Date.now() })); } catch {} };
@@ -59,7 +59,7 @@ function dashboardTable(data) {
   const groups = data.groups || {};
   const zones = data.zones || Object.keys(groups);
   if (!zones.length) return `<div class="grid min-h-80 place-items-center text-sm text-slate-500">Data dashboard belum tersedia.</div>`;
-  return `<div id="jadwal-dashboard-capture" class="overflow-auto bg-white" style="max-height:calc(100vh - 285px)"><table class="w-full min-w-[850px] border-separate border-spacing-0 text-[11px]"><thead><tr>${['NO','NIP','NAMA','DEPARTEMEN','JABATAN','ROSTER'].map((h, i) => `<th class="sticky top-0 z-30 border-b border-r border-slate-200 bg-slate-100 px-3 py-2 text-left font-extrabold text-slate-700 ${i < 4 ? `a542-stick a542-col-${i+1}` : ''}">${h}</th>`).join('')}</tr></thead><tbody>${zones.map((zone) => `<tr><td colspan="6" class="border-b border-slate-200 bg-emerald-100 px-3 py-2 font-extrabold text-emerald-900">${escapeHtml(zone)}</td></tr>${(groups[zone] || []).map((item, index) => `<tr>${[
+  return `<div id="jadwal-dashboard-capture" class="h-[calc(100dvh-280px)] min-h-[280px] overflow-auto bg-white lg:h-[calc(100dvh-210px)]"><table class="w-full min-w-[850px] border-separate border-spacing-0 text-[11px]"><thead><tr>${['NO','NIP','NAMA','DEPARTEMEN','JABATAN','ROSTER'].map((h, i) => `<th class="sticky top-0 z-30 border-b border-r border-slate-200 bg-slate-100 px-3 py-2 text-left font-extrabold text-slate-700 ${i < 4 ? `a542-stick a542-col-${i+1}` : ''}">${h}</th>`).join('')}</tr></thead><tbody>${zones.map((zone) => `<tr><td colspan="6" class="border-b border-slate-200 bg-emerald-100 px-3 py-2 font-extrabold text-emerald-900">${escapeHtml(zone)}</td></tr>${(groups[zone] || []).map((item, index) => `<tr>${[
     index + 1, item.nip, item.name, item.department, item.position, item.roster || '-'
   ].map((value, i) => `<td class="border-b border-r border-slate-200 bg-white px-3 py-2 text-slate-700 ${i < 4 ? `a542-stick a542-col-${i+1}` : ''}">${escapeHtml(value)}</td>`).join('')}</tr>`).join('')}`).join('')}</tbody></table></div>`;
 }
@@ -186,7 +186,7 @@ function scheduleTable(data) {
       '</tr>';
   }
 
-  return '<div id="jadwal-a542-capture" class="overflow-auto bg-white" style="max-height:calc(100vh - 285px)">' +
+  return '<div id="jadwal-a542-capture" class="h-[calc(100dvh-280px)] min-h-[280px] overflow-auto bg-white lg:h-[calc(100dvh-210px)]">' +
     '<table class="min-w-max border-separate border-spacing-0 text-[10px]"><thead><tr>' +
     headerTop + '</tr><tr>' + headerBottom + '</tr></thead><tbody>' +
     body + summary + '</tbody></table></div>';
@@ -197,8 +197,13 @@ function scopeBadge(data) {
   return `<span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">${escapeHtml(scope.label)}</span>`;
 }
 function renderSchedule(data) {
-  const actions = `<span class="text-sm font-semibold text-slate-500">Bulan:</span><select data-sheet-select class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold">${sheetOptions(data)}</select><button data-screenshot class="app-button-secondary">Screenshot</button><button data-refresh class="app-button-secondary">Refresh</button>${data.canEdit ? '<button data-edit-hint class="app-button-primary">Edit Jadwal</button>' : ''}`;
-  host.innerHTML = `<section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">${pageHeader(pageTitle(), `${data.sheetName || 'Jadwal A542'}${data.accessScope?.label ? ' · ' + data.accessScope.label : ''}`, actions)}${scheduleTable(data)}</section>`;
+  const isHistory = activePage === 'jadwal-lama';
+  const sourceLabel = `<span class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-700">Sumber: ${escapeHtml(data.sheetName || '-')}</span>`;
+  const historySelector = `<span class="text-sm font-semibold text-slate-500">Bulan:</span><select data-sheet-select class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold">${sheetOptions(data)}</select>`;
+  const commonActions = `<button data-screenshot class="app-button-secondary">Screenshot</button><button data-refresh class="app-button-secondary">Refresh</button>`;
+  const editAction = !isHistory && data.canEdit ? '<button data-edit-hint class="app-button-primary">Edit Jadwal</button>' : '';
+  const actions = `${isHistory ? historySelector : sourceLabel}${commonActions}${editAction}`;
+  host.innerHTML = `<section class="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">${pageHeader(pageTitle(), `${data.sheetName || 'Jadwal A542'}${data.accessScope?.label ? ' · ' + data.accessScope.label : ''}`, actions)}${scheduleTable(data)}</section>`;
   bindSchedule();
 }
 async function loadSchedule(force = false, revision = viewRevision, page = activePage) {
@@ -360,7 +365,7 @@ async function screenshotTarget(selector, filename) {
 function employeeTable(data) {
   const headers=data.headers||[]; const rows=data.rows||[];
   if(!headers.length) return '<div class="grid min-h-72 place-items-center text-sm text-slate-500">Konfigurasi Data Karyawan belum lengkap.</div>';
-  return `<div class="max-h-[calc(100vh-300px)] overflow-auto"><table class="min-w-full text-xs"><thead><tr>${headers.map((h)=>`<th class="sticky top-0 bg-slate-100 px-3 py-2 text-left font-bold text-slate-700">${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>${rows.map((row)=>`<tr>${headers.map((_,i)=>`<td class="border-t border-slate-200 px-3 py-2 text-slate-700">${escapeHtml(row[i]||'')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  return `<div class="h-[calc(100dvh-260px)] min-h-[280px] overflow-auto lg:h-[calc(100dvh-190px)]"><table class="min-w-full text-xs"><thead><tr>${headers.map((h)=>`<th class="sticky top-0 bg-slate-100 px-3 py-2 text-left font-bold text-slate-700">${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>${rows.map((row)=>`<tr>${headers.map((_,i)=>`<td class="border-t border-slate-200 px-3 py-2 text-slate-700">${escapeHtml(row[i]||'')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
 async function loadEmployees(force=false, revision=viewRevision, page=activePage) {
   const cached=readCache('employees');
@@ -562,7 +567,7 @@ function renderGeneratePreview(data) {
       '</div>' +
       '<button data-generate-apply class="app-button-primary" ' + (!(data.changes || []).length ? 'disabled' : '') + '>Terapkan ke Spreadsheet</button>' +
     '</div>' +
-    '<div class="max-h-[55vh] overflow-auto"><table class="min-w-max text-[10px]"><thead><tr>' +
+    '<div class="h-[calc(100dvh-330px)] min-h-[280px] overflow-auto lg:h-[calc(100dvh-260px)]"><table class="min-w-max text-[10px]"><thead><tr>' +
       '<th class="sticky left-0 top-0 z-30 bg-slate-100 px-3 py-2 text-left">NIP</th>' +
       '<th class="sticky left-[80px] top-0 z-30 bg-slate-100 px-3 py-2 text-left">Nama</th>' +
       '<th class="sticky left-[230px] top-0 z-30 bg-slate-100 px-3 py-2 text-left">Zona</th>' +
