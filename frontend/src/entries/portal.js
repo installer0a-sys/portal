@@ -114,9 +114,12 @@ function renderMenuItems() {
 }
 
 function renderPortalShell(session) {
+  const portalRole = getPortalRole(session).toUpperCase();
+  const isPortalAdmin = portalRole === 'ADMIN';
+
   const username =
-    session?.user?.username ||
     session?.user?.name ||
+    session?.user?.username ||
     session?.profile?.user?.username ||
     'User';
 
@@ -258,7 +261,10 @@ function renderPortalShell(session) {
                   <p class="truncate font-semibold text-slate-900">${escapeHtml(username)}</p>
                   <p class="mt-1 text-xs text-slate-500">Portal role: ${escapeHtml(getPortalRole(session))}</p>
                 </div>
-                <button id="logout-button" type="button" class="app-button-secondary mt-3 w-full justify-start" role="menuitem">Logout</button>
+                <div class="mt-3 grid gap-2">
+                  ${isPortalAdmin ? '<button id="settings-button" type="button" class="app-button-secondary w-full justify-start gap-3" role="menuitem"><span aria-hidden="true">⚙</span><span>Settings</span></button>' : ''}
+                  <button id="logout-button" type="button" class="app-button-secondary w-full justify-start gap-3 text-red-600" role="menuitem"><span aria-hidden="true">↪</span><span>Logout</span></button>
+                </div>
               </div>
             </div>
           </div>
@@ -546,6 +552,19 @@ function bindPortalEvents(navigate) {
       profileButton.setAttribute('aria-expanded', 'false');
     }
   }, { signal });
+
+  document
+    .querySelector('#settings-button')
+    ?.addEventListener(
+      'click',
+      async () => {
+        profileMenu?.classList.add('hidden');
+        profileButton?.setAttribute('aria-expanded', 'false');
+        const { openSettings } = await import('../settings/settings-shell.js');
+        await openSettings({ session: activeSession, initialTab: 'apps' });
+      },
+      { signal }
+    );
 
   document
     .querySelector(
