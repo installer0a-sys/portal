@@ -1,8 +1,8 @@
 {
   "app": "portal-v3",
-  "version": "0.6.3a",
-  "build": "2026.07.17.1935",
-  "releasedAt": "2026-07-17T12:35:00.000Z",
+  "version": "0.6.4",
+  "build": "2026.07.17.2000",
+  "releasedAt": "2026-07-17T13:00:00.000Z",
   "minimumSupportedVersion": "0.5.8",
-  "notes": "Schedule header controls, history edit removal, viewport fit, and cache reset"
+  "notes": "Separate schedule renderers, viewport fit, employee management, full role filters"
 }

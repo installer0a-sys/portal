@@ -12,7 +12,7 @@ let scheduleData = null;
 let abortController = null;
 let viewRevision = 0;
 
-const CACHE_PREFIX = 'portal.appA.v063.';
+const CACHE_PREFIX = 'portal.appA.v064.';
 const escapeHtml = (value) => String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
 const readCache = (key) => { try { return JSON.parse(localStorage.getItem(CACHE_PREFIX + key) || 'null'); } catch { return null; } };
 const writeCache = (key, value) => { try { localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ value, savedAt: Date.now() })); } catch {} };
@@ -59,7 +59,7 @@ function dashboardTable(data) {
   const groups = data.groups || {};
   const zones = data.zones || Object.keys(groups);
   if (!zones.length) return `<div class="grid min-h-80 place-items-center text-sm text-slate-500">Data dashboard belum tersedia.</div>`;
-  return `<div id="jadwal-dashboard-capture" class="h-[calc(100dvh-280px)] min-h-[280px] overflow-auto bg-white lg:h-[calc(100dvh-210px)]"><table class="w-full min-w-[850px] border-separate border-spacing-0 text-[11px]"><thead><tr>${['NO','NIP','NAMA','DEPARTEMEN','JABATAN','ROSTER'].map((h, i) => `<th class="sticky top-0 z-30 border-b border-r border-slate-200 bg-slate-100 px-3 py-2 text-left font-extrabold text-slate-700 ${i < 4 ? `a542-stick a542-col-${i+1}` : ''}">${h}</th>`).join('')}</tr></thead><tbody>${zones.map((zone) => `<tr><td colspan="6" class="border-b border-slate-200 bg-emerald-100 px-3 py-2 font-extrabold text-emerald-900">${escapeHtml(zone)}</td></tr>${(groups[zone] || []).map((item, index) => `<tr>${[
+  return `<div id="jadwal-dashboard-capture" class="h-full min-h-0 overflow-auto bg-white"><table class="w-full min-w-[850px] border-separate border-spacing-0 text-[11px]"><thead><tr>${['NO','NIP','NAMA','DEPARTEMEN','JABATAN','ROSTER'].map((h, i) => `<th class="sticky top-0 z-30 border-b border-r border-slate-200 bg-slate-100 px-3 py-2 text-left font-extrabold text-slate-700 ${i < 4 ? `a542-stick a542-col-${i+1}` : ''}">${h}</th>`).join('')}</tr></thead><tbody>${zones.map((zone) => `<tr><td colspan="6" class="border-b border-slate-200 bg-emerald-100 px-3 py-2 font-extrabold text-emerald-900">${escapeHtml(zone)}</td></tr>${(groups[zone] || []).map((item, index) => `<tr>${[
     index + 1, item.nip, item.name, item.department, item.position, item.roster || '-'
   ].map((value, i) => `<td class="border-b border-r border-slate-200 bg-white px-3 py-2 text-slate-700 ${i < 4 ? `a542-stick a542-col-${i+1}` : ''}">${escapeHtml(value)}</td>`).join('')}</tr>`).join('')}`).join('')}</tbody></table></div>`;
 }
@@ -186,7 +186,7 @@ function scheduleTable(data) {
       '</tr>';
   }
 
-  return '<div id="jadwal-a542-capture" class="h-[calc(100dvh-280px)] min-h-[280px] overflow-auto bg-white lg:h-[calc(100dvh-210px)]">' +
+  return '<div id="jadwal-a542-capture" class="h-full min-h-0 overflow-auto bg-white">' +
     '<table class="min-w-max border-separate border-spacing-0 text-[10px]"><thead><tr>' +
     headerTop + '</tr><tr>' + headerBottom + '</tr></thead><tbody>' +
     body + summary + '</tbody></table></div>';
@@ -196,16 +196,51 @@ function scopeBadge(data) {
   if (!scope?.label || scope.mode === 'ALL') return '';
   return `<span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">${escapeHtml(scope.label)}</span>`;
 }
-function renderSchedule(data) {
-  const isHistory = activePage === 'jadwal-lama';
-  const sourceLabel = `<span class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-700">Sumber: ${escapeHtml(data.sheetName || '-')}</span>`;
-  const historySelector = `<span class="text-sm font-semibold text-slate-500">Bulan:</span><select data-sheet-select class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold">${sheetOptions(data)}</select>`;
-  const commonActions = `<button data-screenshot class="app-button-secondary">Screenshot</button><button data-refresh class="app-button-secondary">Refresh</button>`;
-  const editAction = !isHistory && data.canEdit ? '<button data-edit-hint class="app-button-primary">Edit Jadwal</button>' : '';
-  const actions = `${isHistory ? historySelector : sourceLabel}${commonActions}${editAction}`;
-  host.innerHTML = `<section class="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">${pageHeader(pageTitle(), `${data.sheetName || 'Jadwal A542'}${data.accessScope?.label ? ' · ' + data.accessScope.label : ''}`, actions)}${scheduleTable(data)}</section>`;
+function activeScheduleActions(data) {
+  const source = `<div class="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+    <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Sumber Sheet</span>
+    <span class="text-sm font-extrabold text-slate-800">${escapeHtml(data.sheetName || '-')}</span>
+  </div>`;
+  const edit = data.canEdit ? '<button data-edit-hint class="app-button-primary">Edit Jadwal</button>' : '';
+  return `${source}
+    <button data-screenshot class="app-button-secondary">Screenshot</button>
+    <button data-refresh class="app-button-secondary">Refresh</button>
+    ${edit}`;
+}
+
+function historyScheduleActions(data) {
+  return `<label class="flex items-center gap-2 text-sm font-semibold text-slate-600">
+      <span>Bulan:</span>
+      <select data-sheet-select class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold">
+        ${sheetOptions(data)}
+      </select>
+    </label>
+    <button data-screenshot class="app-button-secondary">Screenshot</button>
+    <button data-refresh class="app-button-secondary">Refresh</button>`;
+}
+
+function renderActiveSchedule(data) {
+  const subtitle = `${data.sheetName || 'Jadwal A542'}${data.accessScope?.label ? ' · ' + data.accessScope.label : ''}`;
+  host.innerHTML = `<section class="flex h-[calc(100dvh-136px)] min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:h-[calc(100dvh-154px)]">
+    ${pageHeader(pageTitle(), subtitle, activeScheduleActions(data))}
+    <div class="min-h-0 flex-1">${scheduleTable(data)}</div>
+  </section>`;
   bindSchedule();
 }
+
+function renderHistorySchedule(data) {
+  host.innerHTML = `<section class="flex h-[calc(100dvh-136px)] min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:h-[calc(100dvh-154px)]">
+    ${pageHeader('Jadwal Lama', `${data.sheetName || 'Pilih sheet lama'} · Data arsip`, historyScheduleActions(data))}
+    <div class="min-h-0 flex-1">${scheduleTable(data)}</div>
+  </section>`;
+  bindSchedule();
+}
+
+function renderSchedule(data) {
+  if (activePage === 'jadwal-lama') return renderHistorySchedule(data);
+  return renderActiveSchedule(data);
+}
+
 async function loadSchedule(force = false, revision = viewRevision, page = activePage) {
   const key = `schedule.${page}.${selectedSheet || 'active'}`;
   const cached = readCache(key);
@@ -362,17 +397,179 @@ async function screenshotTarget(selector, filename) {
   } catch (error) { toast.error(`Screenshot gagal: ${error.message}`); }
 }
 
-function employeeTable(data) {
-  const headers=data.headers||[]; const rows=data.rows||[];
-  if(!headers.length) return '<div class="grid min-h-72 place-items-center text-sm text-slate-500">Konfigurasi Data Karyawan belum lengkap.</div>';
-  return `<div class="h-[calc(100dvh-260px)] min-h-[280px] overflow-auto lg:h-[calc(100dvh-190px)]"><table class="min-w-full text-xs"><thead><tr>${headers.map((h)=>`<th class="sticky top-0 bg-slate-100 px-3 py-2 text-left font-bold text-slate-700">${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>${rows.map((row)=>`<tr>${headers.map((_,i)=>`<td class="border-t border-slate-200 px-3 py-2 text-slate-700">${escapeHtml(row[i]||'')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+let employeeState = null;
+
+function employeeCell(rowIndex, columnIndex, value, editing) {
+  if (!editing) {
+    return `<td class="border-b border-r border-slate-200 bg-white px-3 py-2 text-slate-700">${escapeHtml(value || '')}</td>`;
+  }
+  return `<td class="border-b border-r border-slate-200 bg-white p-1">
+    <input data-employee-cell data-row="${rowIndex}" data-column="${columnIndex}"
+      value="${escapeHtml(value || '')}"
+      class="min-w-[130px] rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-slate-500">
+  </td>`;
 }
+
+function employeeTable(data) {
+  const headers = data.headers || [];
+  const rows = data.rows || [];
+  if (!headers.length) return '<div class="grid h-full min-h-72 place-items-center text-sm text-slate-500">Konfigurasi Data Karyawan belum lengkap.</div>';
+
+  return `<div class="h-full min-h-0 overflow-auto">
+    <table class="min-w-max border-separate border-spacing-0 text-xs">
+      <thead><tr>
+        <th class="sticky left-0 top-0 z-40 min-w-[54px] border-b border-r border-slate-200 bg-slate-100 px-2 py-2 text-center">NO</th>
+        ${headers.map((header) => `<th class="sticky top-0 z-30 min-w-[130px] border-b border-r border-slate-200 bg-slate-100 px-3 py-2 text-left font-bold text-slate-700">${escapeHtml(header)}</th>`).join('')}
+        <th class="sticky right-0 top-0 z-40 min-w-[190px] border-b border-l border-slate-200 bg-slate-100 px-3 py-2 text-center">AKSI</th>
+      </tr></thead>
+      <tbody>${rows.map((row, rowIndex) => {
+        const editing = Boolean(employeeState?.editAll || employeeState?.editingRows?.has(rowIndex));
+        return `<tr data-employee-row="${rowIndex}">
+          <td class="sticky left-0 z-20 border-b border-r border-slate-200 bg-slate-50 px-2 py-2 text-center font-bold text-slate-500">${rowIndex + 1}</td>
+          ${headers.map((_, columnIndex) => employeeCell(rowIndex, columnIndex, row[columnIndex], editing)).join('')}
+          <td class="sticky right-0 z-20 border-b border-l border-slate-200 bg-white px-2 py-1">
+            <div class="flex justify-center gap-1">
+              <button data-employee-edit="${rowIndex}" class="rounded-lg border border-slate-300 px-2 py-1 font-semibold">${editing ? 'Selesai' : 'Edit'}</button>
+              <button data-employee-up="${rowIndex}" class="rounded-lg border border-slate-300 px-2 py-1">↑</button>
+              <button data-employee-down="${rowIndex}" class="rounded-lg border border-slate-300 px-2 py-1">↓</button>
+              <button data-employee-delete="${rowIndex}" class="rounded-lg border border-red-200 px-2 py-1 font-semibold text-red-600">Hapus</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>
+  </div>`;
+}
+
+function collectEmployeeInputs() {
+  if (!employeeState) return;
+  host.querySelectorAll('[data-employee-cell]').forEach((input) => {
+    const row = Number(input.dataset.row);
+    const column = Number(input.dataset.column);
+    if (employeeState.rows[row]) employeeState.rows[row][column] = input.value;
+  });
+}
+
+function markEmployeeDirty() {
+  if (!employeeState) return;
+  employeeState.dirty = true;
+  const save = host.querySelector('[data-employee-save]');
+  if (save) save.disabled = false;
+}
+
+function renderEmployees(data, preserveState = false) {
+  if (!preserveState || !employeeState) {
+    employeeState = {
+      sheetName: data.sheetName || '',
+      headers: [...(data.headers || [])],
+      rows: (data.rows || []).map((row) => [...row]),
+      editingRows: new Set(),
+      editAll: false,
+      dirty: false
+    };
+  }
+
+  const controls = `
+    <button data-employee-refresh class="app-button-secondary">Refresh</button>
+    <button data-employee-add class="app-button-secondary">Tambah</button>
+    <button data-employee-edit-all class="app-button-secondary">${employeeState.editAll ? 'Selesai Edit Semua' : 'Edit Semua'}</button>
+    <button data-employee-save class="app-button-primary" ${employeeState.dirty ? '' : 'disabled'}>Simpan Semua</button>`;
+
+  host.innerHTML = `<section class="flex h-[calc(100dvh-136px)] min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:h-[calc(100dvh-154px)]">
+    ${pageHeader('Data Karyawan', `${employeeState.sheetName || 'Sheet belum dipilih'} · ${employeeState.rows.length} data`, controls)}
+    <div class="min-h-0 flex-1">${employeeTable(employeeState)}</div>
+  </section>`;
+  bindEmployeeManagement();
+}
+
+function moveEmployeeRow(from, to) {
+  collectEmployeeInputs();
+  if (!employeeState || to < 0 || to >= employeeState.rows.length) return;
+  const [row] = employeeState.rows.splice(from, 1);
+  employeeState.rows.splice(to, 0, row);
+  employeeState.editingRows = new Set();
+  markEmployeeDirty();
+  renderEmployees(employeeState, true);
+}
+
+function bindEmployeeManagement() {
+  host.querySelector('[data-employee-refresh]')?.addEventListener('click', async () => {
+    if (employeeState?.dirty && !window.confirm('Perubahan belum disimpan. Muat ulang data?')) return;
+    employeeState = null;
+    await loadEmployees(true);
+  });
+  host.querySelector('[data-employee-add]')?.addEventListener('click', () => {
+    collectEmployeeInputs();
+    employeeState.rows.push(new Array(employeeState.headers.length).fill(''));
+    employeeState.editingRows.add(employeeState.rows.length - 1);
+    markEmployeeDirty();
+    renderEmployees(employeeState, true);
+  });
+  host.querySelector('[data-employee-edit-all]')?.addEventListener('click', () => {
+    collectEmployeeInputs();
+    employeeState.editAll = !employeeState.editAll;
+    employeeState.editingRows = new Set();
+    renderEmployees(employeeState, true);
+  });
+  host.querySelector('[data-employee-save]')?.addEventListener('click', saveEmployees);
+  host.querySelectorAll('[data-employee-edit]').forEach((button) => button.addEventListener('click', () => {
+    collectEmployeeInputs();
+    const index = Number(button.dataset.employeeEdit);
+    if (employeeState.editingRows.has(index)) employeeState.editingRows.delete(index);
+    else employeeState.editingRows.add(index);
+    renderEmployees(employeeState, true);
+  }));
+  host.querySelectorAll('[data-employee-up]').forEach((button) => button.addEventListener('click', () => moveEmployeeRow(Number(button.dataset.employeeUp), Number(button.dataset.employeeUp) - 1)));
+  host.querySelectorAll('[data-employee-down]').forEach((button) => button.addEventListener('click', () => moveEmployeeRow(Number(button.dataset.employeeDown), Number(button.dataset.employeeDown) + 1)));
+  host.querySelectorAll('[data-employee-delete]').forEach((button) => button.addEventListener('click', () => {
+    collectEmployeeInputs();
+    const index = Number(button.dataset.employeeDelete);
+    const label = employeeState.rows[index]?.[0] || `baris ${index + 1}`;
+    if (!window.confirm(`Hapus ${label}?`)) return;
+    employeeState.rows.splice(index, 1);
+    employeeState.editingRows = new Set();
+    markEmployeeDirty();
+    renderEmployees(employeeState, true);
+  }));
+  host.querySelectorAll('[data-employee-cell]').forEach((input) => input.addEventListener('input', markEmployeeDirty));
+}
+
+async function saveEmployees() {
+  if (!employeeState) return;
+  collectEmployeeInputs();
+  const button = host.querySelector('[data-employee-save]');
+  const original = button?.textContent;
+  if (button) { button.disabled = true; button.textContent = 'Menyimpan...'; }
+  try {
+    const result = await callApi('appA.employees.save', {
+      sheetName: employeeState.sheetName,
+      headers: employeeState.headers,
+      rows: employeeState.rows
+    }, { deduplicate: false, timeoutMs: 60000 });
+    toast.success(result.message || 'Data karyawan berhasil disimpan.');
+    localStorage.removeItem(CACHE_PREFIX + 'employees');
+    employeeState = null;
+    await loadEmployees(true);
+  } catch (error) {
+    toast.error(error.message || 'Data karyawan gagal disimpan.');
+    if (button) { button.disabled = false; button.textContent = original; }
+  }
+}
+
 async function loadEmployees(force=false, revision=viewRevision, page=activePage) {
   const cached=readCache('employees');
-  if(cached?.value) safeRender(revision,page,()=>renderEmployees(cached.value)); else safeRender(revision,page,()=>renderLoading('Memuat Data Karyawan...'));
-  try { const result=await callApi('appA.employees.list',{query:'',limit:1000},{deduplicate:!force}); if(!isCurrentView(revision,page)) return; writeCache('employees',result.data||{}); renderEmployees(result.data||{}); } catch(error){ if(!cached?.value) safeRender(revision,page,()=>renderError(error)); }
+  if(cached?.value && !force) safeRender(revision,page,()=>renderEmployees(cached.value));
+  else safeRender(revision,page,()=>renderLoading('Memuat Data Karyawan...'));
+  try {
+    const result=await callApi('appA.employees.list',{query:'',limit:3000},{deduplicate:!force});
+    if(!isCurrentView(revision,page)) return;
+    writeCache('employees',result.data||{});
+    employeeState = null;
+    renderEmployees(result.data||{});
+  } catch(error) {
+    if(!cached?.value) safeRender(revision,page,()=>renderError(error));
+  }
 }
-function renderEmployees(data){ host.innerHTML=`<section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">${pageHeader('Data Karyawan', `${data.sheetName||'Sheet belum dipilih'} · ${Number(data.total||0)} data`, '<button data-refresh class="app-button-secondary">Refresh</button>')}${employeeTable(data)}</section>`; host.querySelector('[data-refresh]')?.addEventListener('click',()=>loadEmployees(true)); }
 
 async function loadConfiguration(force=false, revision=viewRevision, page=activePage) {
   if(!isAdmin()) return safeRender(revision,page,()=>renderError(new Error('Hanya Admin App yang dapat membuka pengaturan.')));
@@ -396,13 +593,19 @@ function renderConfiguration(data){
       (String(selected || '').toUpperCase() === String(name).toUpperCase() ? 'selected' : '') + '>' +
       escapeHtml(name) + '</option>').join('');
 
+  const roleOptions = data.roleOptions || {};
   const multiRoles = (sheetName, headerName, selected, cls) => {
-    const roleValues = String(selected || '').split(',').map((v) => v.trim()).filter(Boolean);
+    const selectedValues = String(selected || '').split(',').map((v) => v.trim()).filter(Boolean);
+    const selectedKeys = new Set(selectedValues.map((v) => v.toUpperCase()));
+    const available = roleOptions?.[sheetName]?.[headerName] || [];
+    const values = [...new Set([...available, ...selectedValues])];
     return '<div data-role-container="' + cls + '" class="flex flex-wrap gap-2 text-xs">' +
-      roleValues.map((role) => '<label class="rounded-lg border border-slate-200 px-2 py-1.5">' +
-        '<input type="checkbox" class="' + cls + '" value="' + escapeHtml(role) + '" checked> ' +
+      values.map((role) => '<label class="rounded-lg border border-slate-200 px-2 py-1.5">' +
+        '<input type="checkbox" class="' + cls + '" value="' + escapeHtml(role) + '" ' +
+        (selectedKeys.has(String(role).toUpperCase()) ? 'checked' : '') + '> ' +
         escapeHtml(role) + '</label>').join('') +
-      '<span class="text-slate-400">Simpan untuk mempertahankan role yang sudah dipilih. Muat role baru melalui header sumber.</span></div>';
+      (!values.length ? '<span class="text-slate-400">Belum ada nilai pada header sumber.</span>' : '') +
+      '</div>';
   };
 
   host.innerHTML = '<section class="space-y-4">' +
