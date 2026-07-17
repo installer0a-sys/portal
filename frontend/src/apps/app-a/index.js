@@ -10,11 +10,28 @@ let selectedSheet = '';
 let dayOffset = 0;
 let scheduleData = null;
 let abortController = null;
+let viewRevision = 0;
 
-const CACHE_PREFIX = 'portal.appA.v055r2.';
+const CACHE_PREFIX = 'portal.appA.v055r3.';
 const escapeHtml = (value) => String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
 const readCache = (key) => { try { return JSON.parse(localStorage.getItem(CACHE_PREFIX + key) || 'null'); } catch { return null; } };
 const writeCache = (key, value) => { try { localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ value, savedAt: Date.now() })); } catch {} };
+
+function beginView(page = activePage) {
+  activePage = page;
+  viewRevision += 1;
+  abortController?.abort();
+  abortController = null;
+  return viewRevision;
+}
+function isCurrentView(revision, page = activePage) {
+  return Boolean(host) && revision === viewRevision && page === activePage;
+}
+function safeRender(revision, page, renderer) {
+  if (!isCurrentView(revision, page)) return false;
+  renderer();
+  return true;
+}
 
 function roles() {
   const access = getAppAccess(contextRef?.session, 'appA');
@@ -49,21 +66,25 @@ function dashboardTable(data) {
 function renderDashboard(data) {
   const actions = `<label class="flex items-center gap-2 text-sm font-semibold text-slate-600"><span>Pilih Hari</span><select data-day-offset class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"><option value="0" ${Number(data.dayOffset)===0?'selected':''}>Hari Ini</option><option value="1" ${Number(data.dayOffset)===1?'selected':''}>Besok</option><option value="2" ${Number(data.dayOffset)===2?'selected':''}>Lusa</option></select></label><button data-dashboard-shot class="app-button-secondary">Screenshot</button><button data-refresh class="app-button-secondary">Refresh</button>`;
   host.innerHTML = `<section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">${pageHeader('Dashboard', `${data.dateLabel || ''} · ${data.sheetName || ''}`, actions)}${dashboardTable(data)}</section>`;
-  host.querySelector('[data-day-offset]')?.addEventListener('change', (event) => { dayOffset = Number(event.target.value || 0); void loadDashboard(true); });
-  host.querySelector('[data-refresh]')?.addEventListener('click', () => loadDashboard(true));
+  host.querySelector('[data-day-offset]')?.addEventListener('change', (event) => { dayOffset = Number(event.target.value || 0); void renderPage({ force: true, keepPage: true }); });
+  host.querySelector('[data-refresh]')?.addEventListener('click', () => renderPage({ force: true, keepPage: true }));
   host.querySelector('[data-dashboard-shot]')?.addEventListener('click', () => screenshotTarget('#jadwal-dashboard-capture', `Dashboard_Jadwal_A542_${data.dateLabel || 'hari'}`));
 }
-async function loadDashboard(force = false) {
+async function loadDashboard(force = false, revision = viewRevision, page = activePage) {
   const key = `dashboard.${selectedSheet || 'active'}.${dayOffset}`;
   const cached = readCache(key);
-  if (cached?.value) renderDashboard(cached.value); else renderLoading('Memuat Dashboard Jadwal A542...');
+  if (cached?.value) safeRender(revision, page, () => renderDashboard(cached.value));
+  else safeRender(revision, page, () => renderLoading('Memuat Dashboard Jadwal A542...'));
   try {
     const result = await callApi('appA.dashboard', { sheetName: selectedSheet, dayOffset }, { deduplicate: !force });
     const data = result.data || {};
+    if (!isCurrentView(revision, page)) return;
     selectedSheet = data.sheetName || selectedSheet;
     writeCache(key, data);
     renderDashboard(data);
-  } catch (error) { if (!cached?.value) renderError(error); }
+  } catch (error) {
+    if (!cached?.value) safeRender(revision, page, () => renderError(error));
+  }
 }
 
 function scheduleTable(data) {
@@ -84,24 +105,32 @@ function renderSchedule(data) {
   host.innerHTML = `<section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">${pageHeader(pageTitle(), data.sheetName || 'Jadwal A542', actions)}${scheduleTable(data)}</section>`;
   bindSchedule();
 }
-async function loadSchedule(force = false) {
-  const key = `schedule.${activePage}.${selectedSheet || 'active'}`;
+async function loadSchedule(force = false, revision = viewRevision, page = activePage) {
+  const key = `schedule.${page}.${selectedSheet || 'active'}`;
   const cached = readCache(key);
-  if (cached?.value) { scheduleData = cached.value; renderSchedule(scheduleData); } else renderLoading(`Memuat ${pageTitle()}...`);
+  if (cached?.value) {
+    safeRender(revision, page, () => { scheduleData = cached.value; renderSchedule(scheduleData); });
+  } else {
+    safeRender(revision, page, () => renderLoading(`Memuat ${pageTitle()}...`));
+  }
   try {
-    const result = await callApi('appA.schedule.list', { sheetName: selectedSheet, limit: 1500, view: activePage }, { deduplicate: !force });
-    scheduleData = result.data || {};
-    selectedSheet = scheduleData.sheetName || selectedSheet;
-    writeCache(`schedule.${activePage}.${selectedSheet || 'active'}`, scheduleData);
-    renderSchedule(scheduleData);
-  } catch (error) { if (!cached?.value) renderError(error); }
+    const result = await callApi('appA.schedule.list', { sheetName: selectedSheet, limit: 1500, view: page }, { deduplicate: !force });
+    const data = result.data || {};
+    if (!isCurrentView(revision, page)) return;
+    scheduleData = data;
+    selectedSheet = data.sheetName || selectedSheet;
+    writeCache(`schedule.${page}.${selectedSheet || 'active'}`, data);
+    renderSchedule(data);
+  } catch (error) {
+    if (!cached?.value) safeRender(revision, page, () => renderError(error));
+  }
 }
 function bindSchedule() {
   abortController?.abort();
   abortController = new AbortController();
   const { signal } = abortController;
-  host.querySelector('[data-sheet-select]')?.addEventListener('change', (event) => { selectedSheet = event.target.value; void loadSchedule(true); }, { signal });
-  host.querySelector('[data-refresh]')?.addEventListener('click', () => loadSchedule(true), { signal });
+  host.querySelector('[data-sheet-select]')?.addEventListener('change', (event) => { selectedSheet = event.target.value; void renderPage({ force: true, keepPage: true }); }, { signal });
+  host.querySelector('[data-refresh]')?.addEventListener('click', () => renderPage({ force: true, keepPage: true }), { signal });
   host.querySelector('[data-screenshot]')?.addEventListener('click', () => screenshotTarget('#jadwal-a542-capture', `Jadwal_A542_${scheduleData?.sheetName || 'jadwal'}`), { signal });
   host.querySelector('[data-edit-hint]')?.addEventListener('click', () => toast.info('Editor jadwal akan diaktifkan setelah pembatasan NIP dan zona selesai dipindahkan.'), { signal });
 }
@@ -125,16 +154,17 @@ function employeeTable(data) {
   if(!headers.length) return '<div class="grid min-h-72 place-items-center text-sm text-slate-500">Konfigurasi Data Karyawan belum lengkap.</div>';
   return `<div class="max-h-[calc(100vh-300px)] overflow-auto"><table class="min-w-full text-xs"><thead><tr>${headers.map((h)=>`<th class="sticky top-0 bg-slate-100 px-3 py-2 text-left font-bold text-slate-700">${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>${rows.map((row)=>`<tr>${headers.map((_,i)=>`<td class="border-t border-slate-200 px-3 py-2 text-slate-700">${escapeHtml(row[i]||'')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
-async function loadEmployees(force=false) {
-  const cached=readCache('employees'); if(cached?.value) renderEmployees(cached.value); else renderLoading('Memuat Data Karyawan...');
-  try { const result=await callApi('appA.employees.list',{query:'',limit:1000},{deduplicate:!force}); writeCache('employees',result.data||{}); renderEmployees(result.data||{}); } catch(error){ if(!cached?.value) renderError(error); }
+async function loadEmployees(force=false, revision=viewRevision, page=activePage) {
+  const cached=readCache('employees');
+  if(cached?.value) safeRender(revision,page,()=>renderEmployees(cached.value)); else safeRender(revision,page,()=>renderLoading('Memuat Data Karyawan...'));
+  try { const result=await callApi('appA.employees.list',{query:'',limit:1000},{deduplicate:!force}); if(!isCurrentView(revision,page)) return; writeCache('employees',result.data||{}); renderEmployees(result.data||{}); } catch(error){ if(!cached?.value) safeRender(revision,page,()=>renderError(error)); }
 }
 function renderEmployees(data){ host.innerHTML=`<section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">${pageHeader('Data Karyawan', `${data.sheetName||'Sheet belum dipilih'} · ${Number(data.total||0)} data`, '<button data-refresh class="app-button-secondary">Refresh</button>')}${employeeTable(data)}</section>`; host.querySelector('[data-refresh]')?.addEventListener('click',()=>loadEmployees(true)); }
 
-async function loadConfiguration(force=false) {
-  if(!isAdmin()) return renderError(new Error('Hanya Admin App yang dapat membuka pengaturan.'));
-  const cached=readCache('config'); if(cached?.value) renderConfiguration(cached.value); else renderLoading('Memuat konfigurasi Jadwal A542...');
-  try { const result=await callApi('appA.config.get',{}, {deduplicate:!force}); writeCache('config',result.data||{}); renderConfiguration(result.data||{}); } catch(error){ if(!cached?.value) renderError(error); }
+async function loadConfiguration(force=false, revision=viewRevision, page=activePage) {
+  if(!isAdmin()) return safeRender(revision,page,()=>renderError(new Error('Hanya Admin App yang dapat membuka pengaturan.')));
+  const cached=readCache('config'); if(cached?.value) safeRender(revision,page,()=>renderConfiguration(cached.value)); else safeRender(revision,page,()=>renderLoading('Memuat konfigurasi Jadwal A542...'));
+  try { const result=await callApi('appA.config.get',{}, {deduplicate:!force}); if(!isCurrentView(revision,page)) return; writeCache('config',result.data||{}); renderConfiguration(result.data||{}); } catch(error){ if(!cached?.value) safeRender(revision,page,()=>renderError(error)); }
 }
 function renderConfiguration(data){
   const cfg=data.config||{};
@@ -145,7 +175,16 @@ function renderConfiguration(data){
 }
 async function saveConfiguration(){ const config={}; host.querySelectorAll('[data-config-key]').forEach((el)=>{config[el.dataset.configKey]=el.value;}); try { await callApi('appA.config.save',{config},{deduplicate:false}); localStorage.removeItem(CACHE_PREFIX+'config'); toast.success('Pengaturan berhasil disimpan.'); await loadConfiguration(true); } catch(error){ toast.error(error.message); } }
 function renderPlaceholder(){ host.innerHTML=`<article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 class="text-xl font-bold text-slate-900">${escapeHtml(pageTitle())}</h2><p class="mt-2 text-sm text-slate-500">Menu sudah ditempatkan sesuai struktur web lama. Fungsi bisnis akan dipindahkan bertahap tanpa mengubah web mandiri.</p></article>`; }
-async function renderPage(){ if(activePage==='dashboard') return loadDashboard(); if(['jadwal-all','jadwal-spv','dop-dos','jadwal-lama'].includes(activePage)) return loadSchedule(); if(activePage==='admin-karyawan') return loadEmployees(); if(activePage==='admin-jadwal') return loadConfiguration(); return renderPlaceholder(); }
+async function renderPage({ force = false, keepPage = false } = {}) {
+  const page = activePage;
+  const revision = keepPage ? ++viewRevision : beginView(page);
+  if (page === 'dashboard') return loadDashboard(force, revision, page);
+  if (['jadwal-all','jadwal-spv','dop-dos','jadwal-lama'].includes(page)) return loadSchedule(force, revision, page);
+  if (page === 'admin-karyawan') return loadEmployees(force, revision, page);
+  if (page === 'admin-jadwal') return loadConfiguration(force, revision, page);
+  safeRender(revision, page, renderPlaceholder);
+}
+
 
 const styleId = 'jadwal-a542-r2-style';
 function ensureStyle(){ if(document.getElementById(styleId)) return; const style=document.createElement('style'); style.id=styleId; style.textContent=`
@@ -153,5 +192,26 @@ function ensureStyle(){ if(document.getElementById(styleId)) return; const style
 @media(max-width:767px){.a542-stick,.a542-stick-head{position:static}.a542-col-1,.a542-col-2,.a542-col-3,.a542-col-4{min-width:auto;max-width:none;box-shadow:none}}
 `; document.head.appendChild(style); }
 
-const app=defineApp({ id:'appA', async mount(container,context={}){ host=container; contextRef=context; ensureStyle(); activePage=context.internalMenu?.find((item)=>item.default)?.route||'dashboard'; document.querySelectorAll('[data-internal-route]').forEach((button)=>context.lifecycle?.listen(button,'click',()=>{ activePage=button.dataset.internalRoute||'dashboard'; void renderPage(); })); await renderPage(); context.lifecycle?.addCleanup(()=>{abortController?.abort(); host=null; contextRef=null; scheduleData=null;}); }, async refresh(){await renderPage();}, async pause(){}, async resume(){}, async unmount(){abortController?.abort(); if(host)host.innerHTML=''; host=null; contextRef=null;} });
+const app=defineApp({
+  id:'appA',
+  async mount(container,context={}){
+    host=container;
+    contextRef=context;
+    ensureStyle();
+    activePage=context.internalMenu?.find((item)=>item.default)?.route||'dashboard';
+    viewRevision=0;
+    document.querySelectorAll('[data-internal-route]').forEach((button)=>context.lifecycle?.listen(button,'click',()=>{
+      const nextPage=button.dataset.internalRoute||'dashboard';
+      if(nextPage===activePage && host?.childElementCount) return;
+      activePage=nextPage;
+      void renderPage();
+    }));
+    await renderPage();
+    context.lifecycle?.addCleanup(()=>{ viewRevision+=1; abortController?.abort(); host=null; contextRef=null; scheduleData=null; });
+  },
+  async refresh(){await renderPage({force:true,keepPage:true});},
+  async pause(){},
+  async resume(){},
+  async unmount(){viewRevision+=1; abortController?.abort(); if(host)host.innerHTML=''; host=null; contextRef=null;}
+});
 export const { mount,refresh,pause,resume,unmount }=app;

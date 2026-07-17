@@ -65,6 +65,8 @@ function normalizeInternalMenu(items = []) {
         boolean(item.enabled, true),
       default:
         boolean(item.default, index === 0),
+      adminOnly:
+        boolean(item.adminOnly, false),
       requiredPermission:
         text(item.requiredPermission)
     };

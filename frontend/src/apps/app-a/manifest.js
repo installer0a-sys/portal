@@ -6,7 +6,7 @@ export const appAManifest = {
   description: 'Pembuatan dan pemantauan jadwal karyawan Azko Kudus Sudirman.',
   icon: 'calendar',
   category: '',
-  version: '0.5.5-r2',
+  version: '0.5.5-r3',
   route: 'jadwal-a542',
   order: 20,
   menu: true,
