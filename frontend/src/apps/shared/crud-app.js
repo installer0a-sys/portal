@@ -1,5 +1,5 @@
 import { defineApp } from '../../sdk/portal-sdk.js';
-import { permissionEngine } from '../../core/permission.js';
+import { createAppAccess } from './app-framework.js';
 import { toast } from '../../core/toast.js';
 import { dataClient } from './data-client.js';
 
@@ -27,7 +27,8 @@ export function createCrudApp({ id, title, dataset }) {
   let mountGeneration = 0;
   let mounted = false;
 
-  const can = (permission) => permissionEngine.can(session, `${id}.${permission}`);
+  let access = null;
+  const can = (permission) => access ? access.can(permission) : false;
 
   function renderShell(context) {
     if (!root) return;
@@ -36,7 +37,7 @@ export function createCrudApp({ id, title, dataset }) {
         <article class="app-card">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p class="text-sm font-semibold text-blue-600">${escapeHtml(title)}</p>
+              <p class="text-sm font-semibold text-slate-900">${escapeHtml(title)}</p>
               <h2 class="mt-1 text-2xl font-bold text-slate-900">Data ${escapeHtml(title)}</h2>
               <p class="mt-1 text-sm text-slate-600">Pencarian, tambah, edit, hapus, dan pemulihan data tanpa reload halaman.</p>
             </div>
@@ -224,7 +225,7 @@ export function createCrudApp({ id, title, dataset }) {
     async mount(container, context = {}) {
       mountGeneration += 1;
       mounted = true;
-      root = container; lifecycle = context.lifecycle; session = context.session;
+      root = container; lifecycle = context.lifecycle; session = context.session; access = createAppAccess(session, id);
       state = { page: 1, pageSize: 20, query: '', status: '', includeDeleted: false, records: [], pagination: null, loading: false };
       renderShell(context);
       lifecycle?.listen(root, 'click', (event) => {
@@ -254,6 +255,7 @@ export function createCrudApp({ id, title, dataset }) {
         root = null;
         lifecycle = null;
         session = null;
+        access = null;
       });
       await load();
     },
@@ -264,6 +266,7 @@ export function createCrudApp({ id, title, dataset }) {
       clearTimeout(searchTimer);
       if (root) root.innerHTML = '';
       root = null;
+      access = null;
     }
   });
 }

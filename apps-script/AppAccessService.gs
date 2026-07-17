@@ -272,3 +272,112 @@ function extractRoleDefinitions_(config) {
   }
   return [];
 }
+
+function syncAppRolePermissionsFromCache_(ss) {
+  const cacheSheet = ss.getSheetByName('APP_CONFIG_CACHE');
+  const target = ss.getSheetByName('APP_ROLE_PERMISSION_MASTER');
+  if (!target) return;
+
+  const records = [];
+  const now = new Date();
+  const registeredApps = getRegisteredAppIdMap_();
+
+  Object.keys(registeredApps).forEach(function(appId) {
+    defaultRolePermissionDefinitions_(appId).forEach(function(item) {
+      records.push({
+        PERMISSION_KEY: appId + '|' + item.role + '|' + item.permission,
+        APP_ID: appId,
+        ROLE: item.role,
+        PERMISSION: item.permission,
+        DESCRIPTION: item.description,
+        STATUS: 'ACTIVE',
+        SOURCE_HASH: 'DEFAULT',
+        SYNC_AT: now
+      });
+    });
+  });
+
+  if (cacheSheet && cacheSheet.getLastRow() >= 2) {
+    const headers = getSheetHeaders_(cacheSheet);
+    cacheSheet.getRange(2, 1, cacheSheet.getLastRow() - 1, headers.length).getValues().forEach(function(row) {
+      const item = rowToObject_(headers, row);
+      const appId = String(item.APP_ID || '').trim();
+      if (!appId || !registeredApps[appId]) return;
+      let config = {};
+      try { config = JSON.parse(String(item.CONFIG_JSON || '{}')); } catch (ignored) { return; }
+      extractRoleDefinitions_(config).forEach(function(definition) {
+        const role = normalizeAppRole_(typeof definition === 'string' ? definition : definition.role || definition.name || definition.id);
+        if (!role) return;
+        extractPermissionDefinitions_(definition, appId).forEach(function(permissionDefinition) {
+          const permission = normalizeAppPermission_(appId, permissionDefinition.permission);
+          if (!permission) return;
+          records.push({
+            PERMISSION_KEY: appId + '|' + role + '|' + permission,
+            APP_ID: appId,
+            ROLE: role,
+            PERMISSION: permission,
+            DESCRIPTION: String(permissionDefinition.description || ''),
+            STATUS: 'ACTIVE',
+            SOURCE_HASH: String(item.CONFIG_HASH || ''),
+            SYNC_AT: now
+          });
+        });
+      });
+    });
+  }
+
+  const deduped = {};
+  records.forEach(function(record) { deduped[record.PERMISSION_KEY] = record; });
+  replaceSheetRecords_(target, Object.keys(deduped).map(function(key) { return deduped[key]; }));
+}
+
+function defaultRolePermissionDefinitions_(appId) {
+  return [
+    { role: 'ADMIN', permission: appId + '.*', description: 'Akses penuh aplikasi' },
+    { role: 'USER', permission: appId + '.access', description: 'Buka aplikasi' },
+    { role: 'USER', permission: appId + '.data.view', description: 'Lihat data' },
+    { role: 'USER', permission: appId + '.data.list', description: 'Daftar data' },
+    { role: 'USER', permission: appId + '.data.get', description: 'Detail data' },
+    { role: 'USER', permission: appId + '.filter', description: 'Filter data' },
+    { role: 'USER', permission: appId + '.search', description: 'Pencarian' },
+    { role: 'USER', permission: appId + '.chart', description: 'Melihat chart' },
+    { role: 'USER', permission: appId + '.export', description: 'Export data' }
+  ];
+}
+
+function extractPermissionDefinitions_(roleDefinition, appId) {
+  if (!roleDefinition || typeof roleDefinition !== 'object') return [];
+  const raw = roleDefinition.permissions || roleDefinition.permission || roleDefinition.actions || roleDefinition.capabilities || [];
+  const result = [];
+  if (Array.isArray(raw)) {
+    raw.forEach(function(item) {
+      if (typeof item === 'string') result.push({ permission: item, description: '' });
+      else if (item && typeof item === 'object') result.push({ permission: item.permission || item.id || item.action || item.name, description: item.description || item.label || '' });
+    });
+  } else if (raw && typeof raw === 'object') {
+    Object.keys(raw).forEach(function(key) {
+      const value = raw[key];
+      if (value === true) result.push({ permission: key, description: '' });
+      else if (value && typeof value === 'object' && value.enabled !== false) result.push({ permission: value.permission || key, description: value.description || value.label || '' });
+    });
+  }
+  return result;
+}
+
+function normalizeAppPermission_(appId, value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (raw === '*') return appId + '.*';
+  if (raw.indexOf('.') < 0) return appId + '.' + raw;
+  return raw.indexOf(appId + '.') === 0 ? raw : '';
+}
+
+function replaceSheetRecords_(sheet, records) {
+  const headers = getSheetHeaders_(sheet);
+  if (sheet.getLastRow() > 1) sheet.getRange(2, 1, sheet.getLastRow() - 1, Math.max(1, sheet.getLastColumn())).clearContent();
+  if (!records.length) return;
+  const rows = records.map(function(record) {
+    return headers.map(function(header) { return Object.prototype.hasOwnProperty.call(record, header) ? record[header] : ''; });
+  });
+  sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+}

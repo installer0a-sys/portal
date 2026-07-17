@@ -38,6 +38,18 @@ function getUserAccess_(user) {
       if (expectedRole && expectedRole === role) permissions.push(String(item.PERMISSION || ''));
     });
   }
+  const dynamicPermissionSheet = ss.getSheetByName('APP_ROLE_PERMISSION_MASTER');
+  if (dynamicPermissionSheet && dynamicPermissionSheet.getLastRow() >= 2) {
+    const headers = getSheetHeaders_(dynamicPermissionSheet);
+    dynamicPermissionSheet.getRange(2, 1, dynamicPermissionSheet.getLastRow() - 1, headers.length).getValues().forEach(function(row) {
+      const item = rowToObject_(headers, row);
+      const appId = String(item.APP_ID || '').trim();
+      const role = String(item.ROLE || '').trim().toUpperCase();
+      if (!appId || !role || String(item.STATUS || 'ACTIVE').toUpperCase() !== 'ACTIVE') return;
+      if (String(appRoles[appId] || '').toUpperCase() === role) permissions.push(String(item.PERMISSION || '').trim());
+    });
+  }
+
   const uniquePermissions = Array.from(new Set(permissions.filter(Boolean))).sort();
   return {
     portalRole: String(user.PORTAL_ROLE || 'USER').toUpperCase(),
