@@ -2,14 +2,19 @@ function setupPortalSheets_() {
   const ss = SpreadsheetApp.getActive();
   const definitions = [
     ['CONFIG', ['KEY','VALUE','TYPE','DESCRIPTION','UPDATED_AT']],
-    ['USERS', ['USER_ID','USERNAME','PASSWORD_HASH','PASSWORD_SALT','STATUS','PORTAL_ROLE','SESSION_VERSION','CREATED_AT','UPDATED_AT']],
+    ['USERS', ['USER_ID','USERNAME','DISPLAY_NAME','PASSWORD_HASH','PASSWORD_SALT','STATUS','PORTAL_ROLE','SESSION_VERSION','CREATED_AT','UPDATED_AT']],
     ['USER_APP_ROLES', ['USER_ID','APP_ID','ROLE','STATUS','CREATED_AT','UPDATED_AT']],
     ['ROLE_PERMISSIONS', ['APP_ID','ROLE','PERMISSION','DESCRIPTION']],
     ['SESSIONS', ['SESSION_ID','USER_ID','TOKEN_HASH','EXPIRES_AT','STATUS','CREATED_AT','LAST_SEEN_AT','SESSION_VERSION']],
-    ['APPS', ['APP_ID','APP_NAME','ENABLED','DIRECT_PWA','SORT_ORDER','DESCRIPTION']],
+    ['APPS', ['APP_ID','APP_NAME','DESCRIPTION','SPREADSHEET_ID','CONFIG_SHEET','STANDALONE_URL','ICON','CATEGORY','STATUS','ENABLED','DIRECT_PWA','SORT_ORDER','CACHE_TTL_SECONDS','CONFIG_VERSION','CONFIG_HASH','CONFIG_SYNCED_AT','CREATED_AT','UPDATED_AT','DELETED_AT']],
+    ['APP_CONFIG_CACHE', ['APP_ID','CONFIG_VERSION','CONFIG_JSON','CONFIG_HASH','CACHED_AT','SOURCE_SPREADSHEET_ID','SOURCE_SHEET']],
     ['AUDIT_LOG', ['TIMESTAMP','REQUEST_ID','USER_ID','ACTION','STATUS','DURATION_MS','DETAILS']],
     ['SYSTEM_LOG', ['TIMESTAMP','LEVEL','SOURCE','MESSAGE','REQUEST_ID','DETAILS']]
   ];
+
+  listDatasetDefinitions_().forEach(function(item) {
+    definitions.push([item.definition.sheetName, item.definition.headers]);
+  });
 
   definitions.forEach(function(definition) {
     ensureSheetStructure_(ss, definition[0], definition[1]);
@@ -19,7 +24,10 @@ function setupPortalSheets_() {
   seedApps_(ss);
   seedPermissions_(ss);
   ensureAuthPepper_();
-  return success_({ sheets: definitions.map(function(item) { return item[0]; }) }, 'Struktur sheet berhasil diperiksa.');
+  return success_({
+    schemaVersion: PORTAL_SCHEMA_VERSION,
+    sheets: definitions.map(function(item) { return item[0]; })
+  }, 'Struktur sheet dan migrasi data berhasil diperiksa.');
 }
 
 function setupPortalSheets() {
@@ -55,8 +63,9 @@ function ensureSheetStructure_(ss, name, headers) {
 
 function seedConfig_(ss) {
   upsertRowsByKey_(ss.getSheetByName('CONFIG'), 'KEY', [
-    { KEY: 'PORTAL_NAME', VALUE: 'Portal AZKO Kudus', TYPE: 'STRING', DESCRIPTION: 'Nama portal', UPDATED_AT: new Date() },
+    { KEY: 'PORTAL_NAME', VALUE: 'Portal Azko Kudus Sudirman', TYPE: 'STRING', DESCRIPTION: 'Nama portal', UPDATED_AT: new Date() },
     { KEY: 'PORTAL_VERSION', VALUE: PORTAL_VERSION, TYPE: 'STRING', DESCRIPTION: 'Versi backend', UPDATED_AT: new Date() },
+    { KEY: 'SCHEMA_VERSION', VALUE: String(PORTAL_SCHEMA_VERSION), TYPE: 'NUMBER', DESCRIPTION: 'Versi struktur Spreadsheet', UPDATED_AT: new Date() },
     { KEY: 'MAINTENANCE_MODE', VALUE: 'FALSE', TYPE: 'BOOLEAN', DESCRIPTION: 'Mode pemeliharaan', UPDATED_AT: new Date() },
     { KEY: 'SESSION_TTL_MINUTES', VALUE: '480', TYPE: 'NUMBER', DESCRIPTION: 'Masa sesi login', UPDATED_AT: new Date() }
   ]);
@@ -64,13 +73,13 @@ function seedConfig_(ss) {
 
 function seedApps_(ss) {
   upsertRowsByKey_(ss.getSheetByName('APPS'), 'APP_ID', [
-    { APP_ID: 'portal', APP_NAME: 'Portal Utama', ENABLED: true, DIRECT_PWA: true, SORT_ORDER: 1, DESCRIPTION: 'Shell utama portal' },
-    { APP_ID: 'appA', APP_NAME: 'App A', ENABLED: true, DIRECT_PWA: true, SORT_ORDER: 10, DESCRIPTION: 'Aplikasi A' },
-    { APP_ID: 'appB', APP_NAME: 'App B', ENABLED: true, DIRECT_PWA: false, SORT_ORDER: 20, DESCRIPTION: 'Aplikasi B' },
-    { APP_ID: 'appC', APP_NAME: 'App C', ENABLED: true, DIRECT_PWA: false, SORT_ORDER: 30, DESCRIPTION: 'Aplikasi C' },
-    { APP_ID: 'appD', APP_NAME: 'App D', ENABLED: true, DIRECT_PWA: false, SORT_ORDER: 40, DESCRIPTION: 'Aplikasi D' },
-    { APP_ID: 'appE', APP_NAME: 'App E', ENABLED: true, DIRECT_PWA: false, SORT_ORDER: 50, DESCRIPTION: 'Aplikasi E' }
-  ]);
+    { APP_ID: 'portal', APP_NAME: 'Portal Utama', DESCRIPTION: 'Shell utama portal', CONFIG_SHEET: 'CONFIG_WEB', STATUS: 'ACTIVE', ENABLED: true, DIRECT_PWA: true, SORT_ORDER: 1, CACHE_TTL_SECONDS: 900 },
+    { APP_ID: 'appA', APP_NAME: 'App A', DESCRIPTION: 'Aplikasi A', CONFIG_SHEET: 'CONFIG_WEB', STATUS: 'ACTIVE', ENABLED: true, DIRECT_PWA: true, SORT_ORDER: 10, CACHE_TTL_SECONDS: 900 },
+    { APP_ID: 'appB', APP_NAME: 'App B', DESCRIPTION: 'Aplikasi B', CONFIG_SHEET: 'CONFIG_WEB', STATUS: 'ACTIVE', ENABLED: true, DIRECT_PWA: false, SORT_ORDER: 20, CACHE_TTL_SECONDS: 900 },
+    { APP_ID: 'appC', APP_NAME: 'App C', DESCRIPTION: 'Aplikasi C', CONFIG_SHEET: 'CONFIG_WEB', STATUS: 'ACTIVE', ENABLED: true, DIRECT_PWA: false, SORT_ORDER: 30, CACHE_TTL_SECONDS: 900 },
+    { APP_ID: 'appD', APP_NAME: 'App D', DESCRIPTION: 'Aplikasi D', CONFIG_SHEET: 'CONFIG_WEB', STATUS: 'ACTIVE', ENABLED: true, DIRECT_PWA: false, SORT_ORDER: 40, CACHE_TTL_SECONDS: 900 },
+    { APP_ID: 'appE', APP_NAME: 'App E', DESCRIPTION: 'Aplikasi E', CONFIG_SHEET: 'CONFIG_WEB', STATUS: 'ACTIVE', ENABLED: true, DIRECT_PWA: false, SORT_ORDER: 50, CACHE_TTL_SECONDS: 900 }
+  ], { preserveExisting: true });
 }
 
 function seedPermissions_(ss) {
@@ -88,6 +97,10 @@ function seedPermissions_(ss) {
   const definitions = [
     { APP_ID: 'portal', ROLE: 'ADMIN', PERMISSION: 'portal.access', DESCRIPTION: 'Akses portal' },
     { APP_ID: 'portal', ROLE: 'ADMIN', PERMISSION: 'portal.settings', DESCRIPTION: 'Kelola pengaturan' },
+    { APP_ID: 'portal', ROLE: 'ADMIN', PERMISSION: 'portal.apps.view', DESCRIPTION: 'Lihat registry aplikasi' },
+    { APP_ID: 'portal', ROLE: 'ADMIN', PERMISSION: 'portal.apps.manage', DESCRIPTION: 'Kelola registry aplikasi' },
+    { APP_ID: 'portal', ROLE: 'ADMIN', PERMISSION: 'portal.users.view', DESCRIPTION: 'Lihat daftar user' },
+    { APP_ID: 'portal', ROLE: 'ADMIN', PERMISSION: 'portal.users.manage', DESCRIPTION: 'Kelola user dan role' },
     { APP_ID: 'portal', ROLE: 'USER', PERMISSION: 'portal.access', DESCRIPTION: 'Akses portal' },
     { APP_ID: 'appA', ROLE: 'MANAGER', PERMISSION: 'appA.access', DESCRIPTION: 'Akses App A' },
     { APP_ID: 'appA', ROLE: 'MANAGER', PERMISSION: 'appA.manage', DESCRIPTION: 'Kelola App A' },
@@ -106,6 +119,16 @@ function seedPermissions_(ss) {
     { APP_ID: 'appE', ROLE: 'VIEWER', PERMISSION: 'appE.access', DESCRIPTION: 'Lihat App E' }
   ];
 
+  ['appA', 'appB', 'appC', 'appD', 'appE'].forEach(function(appId) {
+    definitions.push(
+      { APP_ID: appId, ROLE: 'MANAGER', PERMISSION: appId + '.data.view', DESCRIPTION: 'Lihat data ' + appId },
+      { APP_ID: appId, ROLE: 'MANAGER', PERMISSION: appId + '.data.create', DESCRIPTION: 'Tambah data ' + appId },
+      { APP_ID: appId, ROLE: 'MANAGER', PERMISSION: appId + '.data.edit', DESCRIPTION: 'Ubah data ' + appId },
+      { APP_ID: appId, ROLE: 'MANAGER', PERMISSION: appId + '.data.delete', DESCRIPTION: 'Hapus dan pulihkan data ' + appId },
+      { APP_ID: appId, ROLE: 'VIEWER', PERMISSION: appId + '.data.view', DESCRIPTION: 'Lihat data ' + appId }
+    );
+  });
+
   definitions.forEach(function(record) {
     const key = record.APP_ID + '|' + record.ROLE + '|' + record.PERMISSION;
     if (!existing[key]) {
@@ -114,7 +137,8 @@ function seedPermissions_(ss) {
   });
 }
 
-function upsertRowsByKey_(sheet, keyHeader, records) {
+function upsertRowsByKey_(sheet, keyHeader, records, options) {
+  const settings = options || {};
   const headers = getSheetHeaders_(sheet);
   const keyIndex = headers.indexOf(keyHeader);
   const existing = {};
@@ -131,7 +155,16 @@ function upsertRowsByKey_(sheet, keyHeader, records) {
     });
     const key = String(record[keyHeader]);
     if (existing[key]) {
-      sheet.getRange(existing[key], 1, 1, headers.length).setValues([row]);
+      if (settings.preserveExisting) {
+        const current = sheet.getRange(existing[key], 1, 1, headers.length).getValues()[0];
+        const merged = headers.map(function(header, index) {
+          const incoming = Object.prototype.hasOwnProperty.call(record, header) ? record[header] : '';
+          return current[index] !== '' && current[index] != null ? current[index] : incoming;
+        });
+        sheet.getRange(existing[key], 1, 1, headers.length).setValues([merged]);
+      } else {
+        sheet.getRange(existing[key], 1, 1, headers.length).setValues([row]);
+      }
     } else {
       sheet.appendRow(row);
     }

@@ -1,4 +1,4 @@
-const PORTAL_VERSION = '0.4.2';
+const PORTAL_VERSION = '0.4.9';
 
 function doGet() {
   return jsonOutput_(success_({ service: 'Portal Azko Kudus Sudirman API', version: PORTAL_VERSION }, 'API aktif.'));
@@ -28,7 +28,8 @@ function doPost(e) {
     return jsonOutput_(failure_(code, safeMessage, {
       durationMs: Date.now() - started,
       version: PORTAL_VERSION,
-      requestId: request.requestId || ''
+      requestId: request.requestId || '',
+      field: String(error && error.field || '')
     }));
   }
 }

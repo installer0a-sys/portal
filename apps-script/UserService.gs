@@ -79,6 +79,7 @@ function createUser_(input) {
   const record = {
     USER_ID: 'U-' + Utilities.getUuid(),
     USERNAME: username,
+    DISPLAY_NAME: String(input.displayName || username).trim(),
     PASSWORD_HASH: hashPassword_(password, salt),
     PASSWORD_SALT: salt,
     STATUS: 'ACTIVE',
@@ -99,6 +100,7 @@ function sanitizeUser_(user) {
   return {
     userId: String(user.USER_ID || ''),
     username: String(user.USERNAME || ''),
+    displayName: String(user.DISPLAY_NAME || user.USERNAME || ''),
     status: String(user.STATUS || ''),
     portalRole: String(user.PORTAL_ROLE || 'USER'),
     sessionVersion: Number(user.SESSION_VERSION || 1)
