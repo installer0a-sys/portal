@@ -18,6 +18,8 @@ let activeSession = null;
 let pwaRegistration = null;
 let shellAbortController = null;
 let currentManifest = null;
+let navigationSequence = 0;
+let navigationPromise = Promise.resolve();
 appRegistry.registerMany(portalAppManifests);
 
 const icon = (name) => ({
@@ -58,7 +60,7 @@ function renderProfile(session, isPortalAdmin, activeRole) {
 
 function renderLauncherShell(session) {
   const isAdmin = getPortalRole(session) === 'ADMIN';
-  root.innerHTML = `<div class="portal-shell-transition min-h-screen bg-slate-100 lg:flex lg:h-screen lg:flex-col lg:overflow-hidden">
+  root.innerHTML = `<div class="portal-shell-transition min-h-screen bg-slate-100 lg:flex lg:h-full lg:flex-col lg:overflow-hidden">
     <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur"><div class="mx-auto flex min-h-[72px] max-w-[1500px] items-center gap-4 px-4 sm:px-6">
       <div class="min-w-0"><p class="font-bold text-slate-900">Portal Web</p><p class="text-xs text-slate-500">Azko Kudus Sudirman</p></div>
       <div class="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
@@ -77,14 +79,14 @@ function renderAppShell(session, manifest) {
   const items = permissionEngine.filterInternalMenu(session, manifest.internalMenu || [], manifest.id);
   const menu = items.map((item) => `<button type="button" data-internal-route="${escapeHtml(item.route)}" data-tooltip="${escapeHtml(item.title)}" class="sidebar-link flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900">${icon(item.icon)}<span class="sidebar-label">${escapeHtml(item.title)}</span></button>`).join('');
   const adminMenu = permissionEngine.isAppAdmin(session, manifest.id) ? `<div class="mt-auto border-t border-slate-200 pt-3"><button type="button" data-internal-route="admin" data-tooltip="Admin Panel" class="sidebar-link flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold text-slate-700 transition hover:bg-slate-100">${icon('settings')}<span class="sidebar-label">Admin Panel</span></button></div>` : '';
-  root.innerHTML = `<div class="portal-shell-transition min-h-screen bg-slate-100 lg:flex">
+  root.innerHTML = `<div class="portal-shell-transition min-h-screen bg-slate-100 lg:flex lg:h-full lg:overflow-hidden">
     <div id="sidebar-backdrop" class="fixed inset-0 z-40 hidden bg-slate-950/40 lg:hidden"></div>
     <aside id="app-sidebar" class="app-sidebar ${collapsed ? 'is-collapsed' : ''} fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-200 bg-white p-4 lg:sticky lg:top-0 lg:h-screen">
       <div class="sidebar-brand-text border-b border-slate-200 pb-4"><p class="truncate text-base font-bold text-slate-900">${escapeHtml(manifest.title)}</p><p class="mt-1 truncate text-xs text-slate-500"><button data-go-launcher class="hover:text-slate-900">Portal</button> / ${escapeHtml(manifest.shortTitle || manifest.title)} / <span id="breadcrumb-page">Dashboard</span></p></div>
       <nav class="mt-4 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">${menu || `<button class="sidebar-link flex min-h-11 items-center gap-3 rounded-xl bg-brand-50 px-3 text-sm font-semibold text-brand-700">${icon('home')}<span class="sidebar-label">Dashboard</span></button>`}${adminMenu}</nav>
-      <p class="sidebar-section-label mt-4 text-center text-[11px] text-slate-400">Portal v0.5.0f</p>
+      <p class="sidebar-section-label mt-4 text-center text-[11px] text-slate-400">Portal v0.5.0g</p>
     </aside>
-    <section class="app-workspace min-w-0 flex-1">
+    <section class="app-workspace min-w-0 flex-1 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden">
       <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur"><div class="flex min-h-[72px] items-center gap-2 px-4 sm:px-6">
         <button id="toggle-sidebar" type="button" class="grid h-11 w-11 place-items-center rounded-xl border border-slate-200 bg-white text-slate-700" title="Perkecil / buka sidebar">${icon('menu')}</button>
         <button id="all-apps-button" type="button" class="grid h-11 w-11 place-items-center rounded-xl border border-slate-200 bg-white text-slate-700" title="Kembali ke Portal Launcher">${icon('apps')}</button>
@@ -94,7 +96,7 @@ function renderAppShell(session, manifest) {
           ${renderProfile(session, isAdmin, gate.role)}
         </div>
       </div></header>
-      <main id="portal-content" class="p-4 sm:p-6"></main>
+      <main id="portal-content" class="p-4 sm:p-6 lg:min-h-0 lg:flex-1 lg:overflow-y-auto"></main>
     </section>
   </div>`;
 }
@@ -109,22 +111,38 @@ function registerRoutes() { appRegistry.list().forEach((manifest) => router.regi
 function createNavigator() {
   registerRoutes();
   return async (route, options = {}) => {
-    let manifest = appRegistry.getByRoute(route) || appRegistry.getByRoute('dashboard');
-    currentManifest = manifest;
-    if (isLauncher(manifest)) renderLauncherShell(activeSession); else renderAppShell(activeSession, manifest);
-    bindShellEvents(navigate);
-    const container = document.querySelector('#portal-content');
-    if (!isLauncher(manifest)) {
-      const gate = permissionEngine.getAppGate(activeSession, manifest.id);
-      if (!gate.allowed) { renderGateMessage(manifest, gate); bindShellEvents(navigate); history.replaceState(null,'',`#${manifest.route}`); return; }
-    }
-    await router.navigate(manifest.route, {
-      container, mode: 'portal', session: activeSession, manifest,
-      internalMenu: permissionEngine.filterInternalMenu(activeSession, manifest.internalMenu || [], manifest.id),
-      visibleManifests: getVisibleManifests(),
-      navigate,
-      historyMode: options.historyMode || 'push'
+    const sequence = ++navigationSequence;
+    const run = async () => {
+      const manifest = appRegistry.getByRoute(route) || appRegistry.getByRoute('dashboard');
+      document.documentElement.classList.add('portal-navigating');
+      currentManifest = manifest;
+      if (isLauncher(manifest)) renderLauncherShell(activeSession); else renderAppShell(activeSession, manifest);
+      bindShellEvents(navigate);
+      const container = document.querySelector('#portal-content');
+      if (!isLauncher(manifest)) {
+        const gate = permissionEngine.getAppGate(activeSession, manifest.id);
+        if (!gate.allowed) {
+          renderGateMessage(manifest, gate);
+          bindShellEvents(navigate);
+          history.replaceState(null, '', `#${manifest.route}`);
+          return;
+        }
+      }
+      if (sequence !== navigationSequence) return;
+      await router.navigate(manifest.route, {
+        container, mode: 'portal', session: activeSession, manifest,
+        internalMenu: permissionEngine.filterInternalMenu(activeSession, manifest.internalMenu || [], manifest.id),
+        visibleManifests: getVisibleManifests(),
+        navigate,
+        historyMode: options.historyMode || 'push'
+      });
+    };
+    navigationPromise = navigationPromise.catch(() => {}).then(run).finally(() => {
+      if (sequence === navigationSequence) {
+        requestAnimationFrame(() => document.documentElement.classList.remove('portal-navigating'));
+      }
     });
+    return navigationPromise;
   };
   async function navigate(route, options) { return createNavigator()(route, options); }
 }

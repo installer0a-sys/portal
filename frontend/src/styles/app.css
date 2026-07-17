@@ -141,3 +141,38 @@
   .launcher-scroll-area { min-height: 0; }
   .launcher-scroll-area { overscroll-behavior: contain; }
 }
+
+/* v0.5.0g stable shell navigation */
+html {
+  scrollbar-gutter: stable;
+}
+.portal-shell-transition {
+  animation: none !important;
+}
+.portal-navigating,
+.portal-navigating body {
+  cursor: progress;
+}
+@media (min-width: 1024px) {
+  html,
+  body,
+  #app {
+    height: 100%;
+    overflow: hidden;
+  }
+  .app-workspace,
+  #portal-content,
+  .launcher-scroll-area {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+@media (max-width: 1023px) {
+  html,
+  body,
+  #app {
+    min-height: 100%;
+    height: auto;
+    overflow: visible;
+  }
+}
