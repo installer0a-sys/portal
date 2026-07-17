@@ -76,14 +76,17 @@ function renderAppShell(session, manifest) {
   const collapsed = sidebarCollapsed();
   const gate = permissionEngine.getAppGate(session, manifest.id);
   const items = permissionEngine.filterInternalMenu(session, manifest.internalMenu || [], manifest.id);
-  const menu = items.map((item) => `<button type="button" data-internal-route="${escapeHtml(item.route)}" data-tooltip="${escapeHtml(item.title)}" class="sidebar-link flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900">${icon(item.icon)}<span class="sidebar-label">${escapeHtml(item.title)}</span></button>`).join('');
-  const adminMenu = permissionEngine.isAppAdmin(session, manifest.id) ? `<div class="mt-auto border-t border-slate-200 pt-3"><button type="button" data-internal-route="admin" data-tooltip="Admin Panel" class="sidebar-link flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold text-slate-700 transition hover:bg-slate-100">${icon('settings')}<span class="sidebar-label">Admin Panel</span></button></div>` : '';
+  const regularItems = items.filter((item) => !item.adminOnly);
+  const adminItems = items.filter((item) => item.adminOnly);
+  const renderMenuButton = (item, extraClass = '') => `<button type="button" data-internal-route="${escapeHtml(item.route)}" data-tooltip="${escapeHtml(item.title)}" class="sidebar-link flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 ${extraClass}">${icon(item.icon)}<span class="sidebar-label">${escapeHtml(item.title)}</span></button>`;
+  const menu = regularItems.map((item) => renderMenuButton(item)).join('');
+  const adminMenu = permissionEngine.isAppAdmin(session, manifest.id) && adminItems.length ? `<div class="mt-auto border-t border-slate-200 pt-3"><button id="app-admin-toggle" type="button" class="sidebar-link flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold text-slate-700 transition hover:bg-slate-100" aria-expanded="false">${icon('settings')}<span class="sidebar-label flex-1">Admin Panel</span><span class="sidebar-label text-xs">⌄</span></button><div id="app-admin-submenu" class="mt-1 hidden space-y-1 pl-3">${adminItems.map((item) => renderMenuButton(item, 'text-[13px]')).join('')}</div></div>` : '';
   root.innerHTML = `<div class="portal-shell-transition min-h-screen bg-slate-100 lg:flex lg:h-full lg:overflow-hidden">
     <div id="sidebar-backdrop" class="fixed inset-0 z-40 hidden bg-slate-950/40 lg:hidden"></div>
     <aside id="app-sidebar" class="app-sidebar ${collapsed ? 'is-collapsed' : ''} fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-200 bg-white p-4 lg:sticky lg:top-0 lg:h-screen">
       <div class="sidebar-brand-text border-b border-slate-200 pb-4"><p class="truncate text-base font-bold text-slate-900">${escapeHtml(manifest.title)}</p><p class="mt-1 truncate text-xs text-slate-500"><button data-go-launcher class="hover:text-slate-900">Portal</button> / ${escapeHtml(manifest.shortTitle || manifest.title)} / <span id="breadcrumb-page">Dashboard</span></p></div>
       <nav class="mt-4 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">${menu || `<button class="sidebar-link flex min-h-11 items-center gap-3 rounded-xl bg-brand-50 px-3 text-sm font-semibold text-brand-700">${icon('home')}<span class="sidebar-label">Dashboard</span></button>`}${adminMenu}</nav>
-      <p class="sidebar-section-label mt-4 text-center text-[11px] text-slate-400">Portal v0.5.4 | Design by Fredi</p>
+      <p class="sidebar-section-label mt-4 text-center text-[11px] text-slate-400">Portal v0.5.5 | Design by Fredi</p>
     </aside>
     <section class="app-workspace min-w-0 flex-1 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden">
       <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur"><div class="flex min-h-[72px] items-center gap-2 px-4 sm:px-6">
@@ -166,6 +169,13 @@ function bindShellEvents(navigate) {
     sidebar?.classList.toggle('is-collapsed'); localStorage.setItem(SIDEBAR_KEY, String(sidebar?.classList.contains('is-collapsed')));
   }, { signal });
   document.querySelector('#sidebar-backdrop')?.addEventListener('click', () => { document.querySelector('#app-sidebar')?.classList.remove('is-mobile-open'); document.querySelector('#sidebar-backdrop')?.classList.add('hidden'); }, { signal });
+  document.querySelector('#app-admin-toggle')?.addEventListener('click', () => {
+    const submenu = document.querySelector('#app-admin-submenu');
+    const toggle = document.querySelector('#app-admin-toggle');
+    const willOpen = submenu?.classList.contains('hidden');
+    submenu?.classList.toggle('hidden', !willOpen);
+    toggle?.setAttribute('aria-expanded', String(Boolean(willOpen)));
+  }, { signal });
   document.querySelectorAll('[data-internal-route]').forEach((button) => button.addEventListener('click', () => {
     document.querySelectorAll('[data-internal-route]').forEach((item) => item.classList.remove('bg-brand-50','text-brand-700','bg-slate-100','text-slate-900'));
     button.classList.add('bg-slate-100','text-slate-900');

@@ -27,6 +27,21 @@ function routeApi_(request) {
       return appAScheduleList_(context, payload);
     }
 
+    case 'appA.config.get': {
+      const context = validateSession_(sessionToken);
+      return appAConfiguration_(context);
+    }
+
+    case 'appA.config.save': {
+      const context = validateSession_(sessionToken);
+      return appASaveConfiguration_(context, payload, requestId);
+    }
+
+    case 'appA.employees.list': {
+      const context = validateSession_(sessionToken);
+      return appAEmployees_(context, payload);
+    }
+
     case 'appA.ping': {
       const context = validateSession_(sessionToken);
       requirePermission_(context, 'appA.access');
