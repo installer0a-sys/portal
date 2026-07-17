@@ -7,9 +7,18 @@ let query = '';
 let includeDeleted = false;
 let includeInactive = true;
 let abortController = null;
-const CACHE_KEY = 'portal.settings.apps.v1';
-function readCache() { try { return JSON.parse(sessionStorage.getItem(CACHE_KEY) || 'null'); } catch { return null; } }
-function writeCache(value) { try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(value)); } catch { /* cache optional */ } }
+const CACHE_KEY = 'portal.settings.apps.v2';
+let memoryCache = null;
+let refreshPromise = null;
+function readCache() {
+  if (memoryCache) return memoryCache;
+  try { memoryCache = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); } catch { memoryCache = null; }
+  return memoryCache;
+}
+function writeCache(value) {
+  memoryCache = value;
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(value)); } catch { /* cache optional */ }
+}
 
 
 function escapeHtml(value) {
@@ -121,17 +130,28 @@ async function openForm(app = null) {
   });
 }
 
-async function load() {
+async function load({ background = false, force = false } = {}) {
   if (!containerRef) return;
-  containerRef.innerHTML = '<div class="app-card animate-pulse text-sm text-slate-500">Memuat registry aplikasi...</div>';
-  try {
-    const result = await callApi('apps.list', { includeDeleted, includeInactive }, { deduplicate: false });
-    apps = result.data?.apps || [];
-    writeCache({ apps, savedAt: Date.now() });
-    render();
-  } catch (error) {
-    containerRef.innerHTML = `<div class="app-card border-red-200 bg-red-50 text-sm text-red-700">${escapeHtml(error.message)}</div>`;
+  if (refreshPromise && !force) return refreshPromise;
+  const hasVisibleData = apps.length > 0;
+  if (!background && !hasVisibleData) {
+    containerRef.innerHTML = '<div class="app-card animate-pulse text-sm text-slate-500">Memuat registry aplikasi...</div>';
   }
+  refreshPromise = (async () => {
+    try {
+      const result = await callApi('apps.list', { includeDeleted, includeInactive }, { deduplicate: false });
+      apps = result.data?.apps || [];
+      writeCache({ apps, savedAt: Date.now() });
+      if (containerRef) render();
+    } catch (error) {
+      if (!hasVisibleData && containerRef) {
+        containerRef.innerHTML = `<div class="app-card border-red-200 bg-red-50 text-sm text-red-700">${escapeHtml(error.message)}</div>`;
+      }
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+  return refreshPromise;
 }
 
 async function action(action, payload, success) {
@@ -146,7 +166,7 @@ function bind() {
   containerRef.querySelector('[data-app-search]')?.addEventListener('input', (event) => { const cursor = event.target.selectionStart; query = event.target.value; render(); const input = containerRef?.querySelector('[data-app-search]'); input?.focus(); input?.setSelectionRange(cursor, cursor); }, { signal });
   containerRef.querySelector('[data-include-inactive]')?.addEventListener('change', async (event) => { includeInactive = event.target.checked; await load(); }, { signal });
   containerRef.querySelector('[data-include-deleted]')?.addEventListener('change', async (event) => { includeDeleted = event.target.checked; await load(); }, { signal });
-  containerRef.querySelector('[data-app-refresh]')?.addEventListener('click', load, { signal });
+  containerRef.querySelector('[data-app-refresh]')?.addEventListener('click', () => load({ force: true }), { signal });
   containerRef.querySelector('[data-app-create]')?.addEventListener('click', () => openForm(), { signal });
   containerRef.querySelectorAll('[data-app-edit]').forEach((button) => button.addEventListener('click', () => openForm(apps.find((app) => app.appId === button.dataset.appId)), { signal }));
   containerRef.querySelectorAll('[data-app-move]').forEach((button) => button.addEventListener('click', () => action('apps.move', { appId: button.dataset.appId, direction: button.dataset.appMove }, 'Posisi diperbarui.'), { signal }));
@@ -164,6 +184,11 @@ function bind() {
 export async function mount(container) {
   containerRef = container;
   const cached = readCache();
-  if (cached?.apps) { apps = cached.apps; render(); load(); return; }
+  if (cached?.apps) {
+    apps = cached.apps;
+    render();
+    void load({ background: true });
+    return;
+  }
   await load();
 }

@@ -8,9 +8,18 @@ let appRoleMaster = {};
 let query = '';
 let includeInactive = true;
 let abortController = null;
-const CACHE_KEY = 'portal.settings.users.v1';
-function readCache() { try { return JSON.parse(sessionStorage.getItem(CACHE_KEY) || 'null'); } catch { return null; } }
-function writeCache(value) { try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(value)); } catch { /* cache optional */ } }
+const CACHE_KEY = 'portal.settings.users.v2';
+let memoryCache = null;
+let refreshPromise = null;
+function readCache() {
+  if (memoryCache) return memoryCache;
+  try { memoryCache = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); } catch { memoryCache = null; }
+  return memoryCache;
+}
+function writeCache(value) {
+  memoryCache = value;
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(value)); } catch { /* cache optional */ }
+}
 
 
 function escapeHtml(value) {
@@ -151,19 +160,33 @@ function openPasswordDialog(user) {
   host.querySelector('[data-password-form]').addEventListener('submit', async (event) => { event.preventDefault(); try { await callApi('users.resetPassword', { userId: user.userId, password: new FormData(event.currentTarget).get('password') }, { deduplicate: false }); toast.success('Password direset.'); host.remove(); await load(); } catch (error) { toast.error(error.message); } });
 }
 
-async function load() {
+async function load({ background = false, force = false } = {}) {
   if (!containerRef) return;
-  containerRef.innerHTML = '<div class="app-card animate-pulse text-sm text-slate-500">Memuat user dan akses aplikasi...</div>';
-  try {
-    const [userResult, appResult] = await Promise.all([callApi('users.list', { includeInactive }, { deduplicate: false }), callApi('apps.list', { includeInactive: true, includeDeleted: false }, { deduplicate: false })]);
-    users = userResult.data?.users || [];
-    appRoleMaster = userResult.data?.appRoleMaster || {};
-    apps = appResult.data?.apps || [];
-    writeCache({ users, appRoleMaster, apps, savedAt: Date.now() });
-    render();
-  } catch (error) {
-    containerRef.innerHTML = `<div class="app-card border-red-200 bg-red-50 text-sm text-red-700">${escapeHtml(error.message)}</div>`;
+  if (refreshPromise && !force) return refreshPromise;
+  const hasVisibleData = users.length > 0 || apps.length > 0;
+  if (!background && !hasVisibleData) {
+    containerRef.innerHTML = '<div class="app-card animate-pulse text-sm text-slate-500">Memuat user dan akses aplikasi...</div>';
   }
+  refreshPromise = (async () => {
+    try {
+      const [userResult, appResult] = await Promise.all([
+        callApi('users.list', { includeInactive }, { deduplicate: false }),
+        callApi('apps.list', { includeInactive: true, includeDeleted: false }, { deduplicate: false })
+      ]);
+      users = userResult.data?.users || [];
+      appRoleMaster = userResult.data?.appRoleMaster || {};
+      apps = appResult.data?.apps || [];
+      writeCache({ users, appRoleMaster, apps, savedAt: Date.now() });
+      if (containerRef) render();
+    } catch (error) {
+      if (!hasVisibleData && containerRef) {
+        containerRef.innerHTML = `<div class="app-card border-red-200 bg-red-50 text-sm text-red-700">${escapeHtml(error.message)}</div>`;
+      }
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+  return refreshPromise;
 }
 
 function bind() {
@@ -172,7 +195,7 @@ function bind() {
   const { signal } = abortController;
   containerRef.querySelector('[data-user-search]')?.addEventListener('input', (event) => { const cursor = event.target.selectionStart; query = event.target.value; render(); const input = containerRef?.querySelector('[data-user-search]'); input?.focus(); input?.setSelectionRange(cursor, cursor); }, { signal });
   containerRef.querySelector('[data-include-inactive]')?.addEventListener('change', async (event) => { includeInactive = event.target.checked; await load(); }, { signal });
-  containerRef.querySelector('[data-user-refresh]')?.addEventListener('click', load, { signal });
+  containerRef.querySelector('[data-user-refresh]')?.addEventListener('click', () => load({ force: true }), { signal });
   containerRef.querySelector('[data-user-create]')?.addEventListener('click', () => openUserForm(), { signal });
   containerRef.querySelectorAll('[data-user-edit]').forEach((button) => button.addEventListener('click', () => openUserForm(users.find((user) => user.userId === button.dataset.userEdit)), { signal }));
   containerRef.querySelectorAll('[data-user-password]').forEach((button) => button.addEventListener('click', () => openPasswordDialog(users.find((user) => user.userId === button.dataset.userPassword)), { signal }));
@@ -182,6 +205,13 @@ function bind() {
 export async function mount(container) {
   containerRef = container;
   const cached = readCache();
-  if (cached?.users && cached?.apps) { users = cached.users; appRoleMaster = cached.appRoleMaster || {}; apps = cached.apps; render(); load(); return; }
+  if (cached?.users && cached?.apps) {
+    users = cached.users;
+    appRoleMaster = cached.appRoleMaster || {};
+    apps = cached.apps;
+    render();
+    void load({ background: true });
+    return;
+  }
   await load();
 }
