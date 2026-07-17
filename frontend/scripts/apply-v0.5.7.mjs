@@ -1,186 +1,20 @@
-@import "tailwindcss";
+import { readFile, writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
-@theme {
-  --color-brand-50: #f2f5f9;
-  --color-brand-500: #7b91ad;
-  --color-brand-600: #687f9d;
-  --color-brand-700: #566d8a;
+const root = resolve(process.cwd());
+const read = (path) => readFile(resolve(root, path), 'utf8');
+const write = (path, content) => writeFile(resolve(root, path), content, 'utf8');
+
+async function update(path, transform) {
+  const source = await read(path);
+  const output = transform(source);
+  if (output !== source) await write(path, output);
 }
 
-@layer base {
-  html {
-    color-scheme: light;
-  }
+const COMPACT_MARKER = '/* v0.5.7 global compact density */';
+const compactCss = `
 
-  body {
-    @apply min-h-screen bg-slate-50 text-slate-900 antialiased;
-    caret-color: transparent;
-  }
-
-  input,
-  textarea,
-  [contenteditable="true"] {
-    caret-color: auto;
-  }
-
-  button,
-  a,
-  input {
-    -webkit-tap-highlight-color: transparent;
-  }
-}
-
-@layer components {
-  .app-card {
-    @apply rounded-2xl border border-slate-200 bg-white p-4 shadow-sm;
-  }
-
-  .app-button {
-    @apply inline-flex min-h-11 items-center justify-center rounded-xl px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50;
-  }
-
-  .app-button-primary {
-    @apply inline-flex min-h-11 items-center justify-center rounded-xl bg-brand-600 px-4 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50;
-  }
-
-  .app-button-secondary {
-    @apply inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50;
-  }
-}
-
-@layer utilities {
-  .scrollbar-thin {
-    scrollbar-width: thin;
-  }
-}
-
-@layer components {
-  .portal-login-bg {
-    background-color: #15191f;
-    background-image:
-      linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
-      radial-gradient(circle at 20% 35%, rgba(104,127,157,.11), transparent 28%),
-      radial-gradient(circle at 82% 72%, rgba(15,23,42,.8), transparent 35%);
-    background-size: 42px 42px, 42px 42px, auto, auto;
-  }
-  .portal-shell-transition { animation: portalFade .16s ease-out; }
-  .app-sidebar { width: 272px; transition: width .2s ease, transform .2s ease; }
-  .app-sidebar.is-collapsed { width: 76px; }
-  .app-sidebar.is-collapsed .sidebar-label,
-  .app-sidebar.is-collapsed .sidebar-brand-text,
-  .app-sidebar.is-collapsed .sidebar-section-label { display: none; }
-  .app-sidebar.is-collapsed .sidebar-link { justify-content: center; padding-left: .75rem; padding-right: .75rem; }
-  .app-sidebar.is-collapsed .sidebar-link:hover::after {
-    content: attr(data-tooltip); position: fixed; margin-left: 8rem; z-index: 80;
-    border-radius: .65rem; background: #0f172a; color: white; padding: .45rem .7rem;
-    font-size: .75rem; white-space: nowrap; box-shadow: 0 10px 30px rgba(15,23,42,.22);
-  }
-}
-@keyframes portalFade { from { opacity: .25; transform: translateY(3px); } to { opacity: 1; transform: none; } }
-@media (max-width: 1023px) {
-  .app-sidebar { width: 272px !important; transform: translateX(-100%); }
-  .app-sidebar.is-mobile-open { transform: translateX(0); }
-  .app-sidebar .sidebar-label, .app-sidebar .sidebar-brand-text, .app-sidebar .sidebar-section-label { display: initial !important; }
-}
-
-
-/* v0.5.0a mobile shell fixes */
-#portal-settings-root {
-  position: relative;
-  z-index: 120;
-}
-
-#settings-content {
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
-  scrollbar-gutter: stable;
-}
-
-@media (max-width: 639px) {
-  #profile-menu {
-    position: fixed;
-    top: 4.75rem;
-    right: 1rem;
-    left: auto;
-    max-height: calc(100dvh - 5.75rem);
-    overflow-y: auto;
-  }
-
-  #portal-settings-root [data-settings-backdrop] > section {
-    height: 100dvh;
-    max-height: 100dvh;
-  }
-}
-
-
-/* v0.5.0d launcher and settings polish */
-@media (min-width: 1024px) {
-  .launcher-scroll-area { scrollbar-width: thin; scrollbar-gutter: stable; }
-}
-
-
-/* v0.5.0f app identity and single-scroll layout */
-.app-workspace .text-brand-500,
-.app-workspace .text-brand-600,
-.app-workspace .text-brand-700 {
-  color: #0f172a !important;
-}
-.app-workspace .hover\:text-brand-600:hover,
-.app-workspace .hover\:text-brand-700:hover {
-  color: #0f172a !important;
-}
-.app-workspace .bg-brand-50 {
-  background-color: #f1f5f9 !important;
-}
-.app-workspace .border-brand-500 {
-  border-color: #94a3b8 !important;
-}
-@media (min-width: 1024px) {
-  .launcher-layout,
-  .launcher-scroll-area { min-height: 0; }
-  .launcher-scroll-area { overscroll-behavior: contain; }
-}
-
-/* v0.5.0g stable shell navigation */
-html {
-  scrollbar-gutter: stable;
-}
-.portal-shell-transition {
-  animation: none !important;
-}
-.portal-navigating,
-.portal-navigating body {
-  cursor: progress;
-}
-@media (min-width: 1024px) {
-  html,
-  body,
-  #app {
-    height: 100%;
-    overflow: hidden;
-  }
-  .app-workspace,
-  #portal-content,
-  .launcher-scroll-area {
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-  }
-}
-@media (max-width: 1023px) {
-  html,
-  body,
-  #app {
-    min-height: 100%;
-    height: auto;
-    overflow: visible;
-  }
-}
-
-/* v0.5.4 Jadwal A542 table */
-.jadwal-sticky-head,.jadwal-sticky-cell{position:sticky;z-index:12}.jadwal-sticky-head{z-index:25}.jadwal-col-1{left:0;min-width:48px}.jadwal-col-2{left:48px;min-width:78px}.jadwal-col-3{left:126px;min-width:170px}.jadwal-col-4{left:296px;min-width:140px;box-shadow:4px 0 8px -6px rgba(15,23,42,.35)}
-
-/* v0.5.7 global compact density */
+${COMPACT_MARKER}
 :root {
   --portal-header-h: 56px;
   --portal-sidebar-w: 232px;
@@ -310,7 +144,33 @@ html {
   #portal-content { padding: 10px !important; }
   .portal-login-bg { padding: 12px !important; }
   .portal-login-bg section:last-child { min-height: 330px !important; padding: 22px !important; }
-  .portal-login-bg section:last-child .lg\:hidden h1 { font-size: 25px !important; }
+  .portal-login-bg section:last-child .lg\\:hidden h1 { font-size: 25px !important; }
   #portal-settings-root aside { width: 100% !important; }
 }
+`;
 
+await update('src/styles/app.css', (source) =>
+  source.includes(COMPACT_MARKER) ? source : `${source.trimEnd()}${compactCss}\n`
+);
+
+await update('src/core/config.js', (source) =>
+  source.replace(/version:\s*'[^']+'/u, "version: '0.5.7'")
+);
+
+await update('src/entries/portal.js', (source) =>
+  source.replace(/Portal v0\.5\.6 \| Design by Fredi/g, 'Portal v0.5.7 | Design by Fredi')
+);
+
+await update('src/auth/auth.js', (source) => {
+  const oldBlock = `  } catch (error) {\n    sessionStore.clearRuntimeSession();\n    clearSessionState();\n\n    logger.warn(\n      'Session restore failed',\n      {\n        message:\n          error.message\n      }\n    );\n\n    return {\n      authenticated: false,\n      source: 'server',\n      error:\n        error.message\n    };\n  }`;
+
+  const newBlock = `  } catch (error) {\n    const message = String(error?.message || '');\n    const explicitlyInvalid = /(?:session|token).*(?:tidak valid|invalid|expired|kedaluwarsa)|(?:tidak valid|invalid|expired|kedaluwarsa).*(?:session|token)|unauthorized|silakan login|login kembali/i.test(message);\n\n    /*\n     * Timeout, koneksi lambat, atau error data aplikasi tidak boleh\n     * menghapus sesi Portal yang masih tersimpan. Gunakan snapshot cache\n     * sebagai mode offline/stale dan validasi kembali pada request berikutnya.\n     */\n    if (cached && !explicitlyInvalid) {\n      applySession(cached);\n      logger.warn('Session validation deferred; cached session retained', { message });\n      return {\n        authenticated: true,\n        source: 'stale-cache',\n        stale: true,\n        validationError: message,\n        ...cached\n      };\n    }\n\n    sessionStore.clearRuntimeSession();\n    clearSessionState();\n\n    logger.warn('Session restore failed', { message });\n\n    return {\n      authenticated: false,\n      source: 'server',\n      error: message\n    };\n  }`;
+
+  if (source.includes('Session validation deferred; cached session retained')) return source;
+  if (!source.includes(oldBlock)) {
+    throw new Error('Blok restoreSession tidak ditemukan; patch dihentikan agar source tidak rusak.');
+  }
+  return source.replace(oldBlock, newBlock);
+});
+
+console.log('Portal v0.5.7 compact UI and session stability patch applied.');

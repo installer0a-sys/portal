@@ -197,22 +197,35 @@ export async function restoreSession({
       ...snapshot
     };
   } catch (error) {
+    const message = String(error?.message || '');
+    const explicitlyInvalid = /(?:session|token).*(?:tidak valid|invalid|expired|kedaluwarsa)|(?:tidak valid|invalid|expired|kedaluwarsa).*(?:session|token)|unauthorized|silakan login|login kembali/i.test(message);
+
+    /*
+     * Timeout, koneksi lambat, atau error data aplikasi tidak boleh
+     * menghapus sesi Portal yang masih tersimpan. Gunakan snapshot cache
+     * sebagai mode offline/stale dan validasi kembali pada request berikutnya.
+     */
+    if (cached && !explicitlyInvalid) {
+      applySession(cached);
+      logger.warn('Session validation deferred; cached session retained', { message });
+      return {
+        authenticated: true,
+        source: 'stale-cache',
+        stale: true,
+        validationError: message,
+        ...cached
+      };
+    }
+
     sessionStore.clearRuntimeSession();
     clearSessionState();
 
-    logger.warn(
-      'Session restore failed',
-      {
-        message:
-          error.message
-      }
-    );
+    logger.warn('Session restore failed', { message });
 
     return {
       authenticated: false,
       source: 'server',
-      error:
-        error.message
+      error: message
     };
   }
 }

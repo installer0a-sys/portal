@@ -1,11 +1,11 @@
 {
   "name": "portal-v3-frontend",
   "private": true,
-  "version": "0.4.9-2",
+  "version": "0.5.7",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
-    "build": "vite build",
+    "dev": "node scripts/apply-v0.5.7.mjs && vite --host 0.0.0.0",
+    "build": "node scripts/apply-v0.5.7.mjs && vite build",
     "preview": "vite preview --host 0.0.0.0"
   },
   "devDependencies": {
