@@ -136,6 +136,11 @@ function routeApi_(request) {
       return getRegisteredAppConfig_(context, payload);
     }
 
+    case 'logs.list': {
+      const context = validateSession_(sessionToken);
+      return listCentralLogs_(context, payload);
+    }
+
     case 'system.setupSheets': {
       const context = validateSession_(sessionToken);
       requirePermission_(context, 'portal.settings');

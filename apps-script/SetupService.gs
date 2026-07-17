@@ -97,7 +97,7 @@ function seedPermissions_(ss) {
     const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
     rows.forEach(function(row) {
       const item = rowToObject_(headers, row);
-      existing[item.APP_ID + '|' + item.ROLE + '|' + item.PERMISSION] = true;
+      existing[String(item.APP_ID) + '|' + String(item.ROLE).toUpperCase() + '|' + String(item.PERMISSION)] = true;
     });
   }
 
@@ -108,42 +108,40 @@ function seedPermissions_(ss) {
     { APP_ID: 'portal', ROLE: 'ADMIN', PERMISSION: 'portal.apps.manage', DESCRIPTION: 'Kelola registry aplikasi' },
     { APP_ID: 'portal', ROLE: 'ADMIN', PERMISSION: 'portal.users.view', DESCRIPTION: 'Lihat daftar user' },
     { APP_ID: 'portal', ROLE: 'ADMIN', PERMISSION: 'portal.users.manage', DESCRIPTION: 'Kelola user dan role' },
-    { APP_ID: 'portal', ROLE: 'USER', PERMISSION: 'portal.access', DESCRIPTION: 'Akses portal' },
-    { APP_ID: 'appA', ROLE: 'MANAGER', PERMISSION: 'appA.access', DESCRIPTION: 'Akses App A' },
-    { APP_ID: 'appA', ROLE: 'MANAGER', PERMISSION: 'appA.manage', DESCRIPTION: 'Kelola App A' },
-    { APP_ID: 'appA', ROLE: 'VIEWER', PERMISSION: 'appA.access', DESCRIPTION: 'Lihat App A' },
-    { APP_ID: 'appB', ROLE: 'MANAGER', PERMISSION: 'appB.access', DESCRIPTION: 'Akses App B' },
-    { APP_ID: 'appB', ROLE: 'MANAGER', PERMISSION: 'appB.manage', DESCRIPTION: 'Kelola App B' },
-    { APP_ID: 'appB', ROLE: 'VIEWER', PERMISSION: 'appB.access', DESCRIPTION: 'Lihat App B' },
-    { APP_ID: 'appC', ROLE: 'MANAGER', PERMISSION: 'appC.access', DESCRIPTION: 'Akses App C' },
-    { APP_ID: 'appC', ROLE: 'MANAGER', PERMISSION: 'appC.manage', DESCRIPTION: 'Kelola App C' },
-    { APP_ID: 'appC', ROLE: 'VIEWER', PERMISSION: 'appC.access', DESCRIPTION: 'Lihat App C' },
-    { APP_ID: 'appD', ROLE: 'MANAGER', PERMISSION: 'appD.access', DESCRIPTION: 'Akses App D' },
-    { APP_ID: 'appD', ROLE: 'MANAGER', PERMISSION: 'appD.manage', DESCRIPTION: 'Kelola App D' },
-    { APP_ID: 'appD', ROLE: 'VIEWER', PERMISSION: 'appD.access', DESCRIPTION: 'Lihat App D' },
-    { APP_ID: 'appE', ROLE: 'MANAGER', PERMISSION: 'appE.access', DESCRIPTION: 'Akses App E' },
-    { APP_ID: 'appE', ROLE: 'MANAGER', PERMISSION: 'appE.manage', DESCRIPTION: 'Kelola App E' },
-    { APP_ID: 'appE', ROLE: 'VIEWER', PERMISSION: 'appE.access', DESCRIPTION: 'Lihat App E' }
+    { APP_ID: 'portal', ROLE: 'ADMIN', PERMISSION: 'portal.logs.view', DESCRIPTION: 'Lihat central logs' },
+    { APP_ID: 'portal', ROLE: 'USER', PERMISSION: 'portal.access', DESCRIPTION: 'Akses portal' }
   ];
 
-  ['appA', 'appB', 'appC', 'appD', 'appE'].forEach(function(appId) {
-    definitions.push(
-      { APP_ID: appId, ROLE: 'MANAGER', PERMISSION: appId + '.data.view', DESCRIPTION: 'Lihat data ' + appId },
-      { APP_ID: appId, ROLE: 'MANAGER', PERMISSION: appId + '.data.create', DESCRIPTION: 'Tambah data ' + appId },
-      { APP_ID: appId, ROLE: 'MANAGER', PERMISSION: appId + '.data.edit', DESCRIPTION: 'Ubah data ' + appId },
-      { APP_ID: appId, ROLE: 'MANAGER', PERMISSION: appId + '.data.delete', DESCRIPTION: 'Hapus dan pulihkan data ' + appId },
-      { APP_ID: appId, ROLE: 'VIEWER', PERMISSION: appId + '.data.view', DESCRIPTION: 'Lihat data ' + appId }
-    );
-  });
+  const appsSheet = ss.getSheetByName('APPS');
+  if (appsSheet && appsSheet.getLastRow() >= 2) {
+    const appHeaders = getSheetHeaders_(appsSheet);
+    appsSheet.getRange(2, 1, appsSheet.getLastRow() - 1, appHeaders.length).getValues().forEach(function(row) {
+      const app = rowToObject_(appHeaders, row);
+      const appId = String(app.APP_ID || '').trim();
+      if (!appId || appId === 'portal' || app.DELETED_AT) return;
+
+      definitions.push(
+        { APP_ID: appId, ROLE: 'ADMIN', PERMISSION: appId + '.access', DESCRIPTION: 'Buka aplikasi' },
+        { APP_ID: appId, ROLE: 'ADMIN', PERMISSION: appId + '.manage', DESCRIPTION: 'Kelola aplikasi' },
+        { APP_ID: appId, ROLE: 'ADMIN', PERMISSION: appId + '.data.view', DESCRIPTION: 'Lihat data' },
+        { APP_ID: appId, ROLE: 'ADMIN', PERMISSION: appId + '.data.create', DESCRIPTION: 'Tambah data' },
+        { APP_ID: appId, ROLE: 'ADMIN', PERMISSION: appId + '.data.edit', DESCRIPTION: 'Ubah data' },
+        { APP_ID: appId, ROLE: 'ADMIN', PERMISSION: appId + '.data.delete', DESCRIPTION: 'Hapus dan pulihkan data' },
+        { APP_ID: appId, ROLE: 'USER', PERMISSION: appId + '.access', DESCRIPTION: 'Buka aplikasi' },
+        { APP_ID: appId, ROLE: 'USER', PERMISSION: appId + '.data.view', DESCRIPTION: 'Akses baca saja' }
+      );
+    });
+  }
 
   definitions.forEach(function(record) {
+    record.ROLE = String(record.ROLE || '').toUpperCase();
     const key = record.APP_ID + '|' + record.ROLE + '|' + record.PERMISSION;
     if (!existing[key]) {
       sheet.appendRow(headers.map(function(header) { return record[header] || ''; }));
+      existing[key] = true;
     }
   });
 }
-
 function upsertRowsByKey_(sheet, keyHeader, records, options) {
   const settings = options || {};
   const headers = getSheetHeaders_(sheet);

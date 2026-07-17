@@ -52,5 +52,45 @@ function createPermissionSignature_(user, apps, permissions) {
   const source = JSON.stringify({ userId: String(user.USER_ID || ''), sessionVersion: Number(user.SESSION_VERSION || 1), portalRole: String(user.PORTAL_ROLE || ''), apps: apps, permissions: permissions });
   return bytesToHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, source, Utilities.Charset.UTF_8)).slice(0, 20);
 }
-function hasPermission_(sessionContext, permission) { return sessionContext && sessionContext.access && sessionContext.access.permissions.indexOf(permission) >= 0; }
-function requirePermission_(sessionContext, permission) { if (!hasPermission_(sessionContext, permission)) { const error = new Error('Anda tidak memiliki izin untuk menjalankan aksi ini.'); error.code = 'FORBIDDEN'; throw error; } }
+function hasPermission_(sessionContext, permission) {
+  if (!sessionContext || !sessionContext.access) return false;
+
+  const required = String(permission || '').trim();
+  const granted = sessionContext.access.permissions || [];
+  if (!required) return true;
+  if (granted.indexOf(required) >= 0 || granted.indexOf('*') >= 0) return true;
+
+  for (let i = 0; i < granted.length; i += 1) {
+    const item = String(granted[i] || '').trim();
+    if (item.slice(-2) === '.*' && required.indexOf(item.slice(0, -1)) === 0) return true;
+  }
+
+  const separator = required.indexOf('.');
+  if (separator < 1) return false;
+  const appId = required.slice(0, separator);
+  if (appId === 'portal') return false;
+
+  const appAccess = sessionContext.access.apps && sessionContext.access.apps[appId];
+  if (!appAccess || appAccess.access !== true || String(appAccess.status || 'ACTIVE').toUpperCase() !== 'ACTIVE') return false;
+
+  const role = String(appAccess.role || '').trim().toUpperCase();
+  if (!role) return false;
+
+  // Semua role terdaftar boleh membuka aplikasi. Ini mencegah app shell
+  // memunculkan penolakan palsu hanya karena ROLE_PERMISSIONS belum disinkronkan.
+  if (required === appId + '.access') return true;
+
+  // Hak bawaan lintas aplikasi.
+  if (role === 'ADMIN') return true;
+  if (role === 'USER' && (required === appId + '.data.view' || required === appId + '.data.list' || required === appId + '.data.get')) return true;
+
+  return false;
+}
+
+function requirePermission_(sessionContext, permission) {
+  if (!hasPermission_(sessionContext, permission)) {
+    const error = new Error('Anda tidak memiliki izin untuk menjalankan aksi ini.');
+    error.code = 'FORBIDDEN';
+    throw error;
+  }
+}
