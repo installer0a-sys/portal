@@ -48,7 +48,7 @@ function routeApi_(request) {
     }
     case 'appA.config.get': {
       const context = validateSession_(sessionToken);
-      return appAConfiguration_(context);
+      return appAConfigurationV062_(context);
     }
     case 'appA.config.save': {
       const context = validateSession_(sessionToken);
@@ -57,6 +57,10 @@ function routeApi_(request) {
     case 'appA.employees.list': {
       const context = validateSession_(sessionToken);
       return appAEmployees_(context, payload);
+    }
+    case 'appA.employees.save': {
+      const context = validateSession_(sessionToken);
+      return appASaveEmployeesV062_(context, payload, requestId);
     }
     case 'appA.ping': {
       const context = validateSession_(sessionToken);
