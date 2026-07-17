@@ -4,8 +4,8 @@
   "version": "0.5.10",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/apply-v0.5.7.mjs && node scripts/apply-v0.5.8.mjs && node scripts/apply-v0.5.9-backend.mjs && node scripts/apply-v0.5.9.mjs && node scripts/apply-v0.5.10.mjs && vite --host 0.0.0.0",
-    "build": "node scripts/apply-v0.5.7.mjs && node scripts/apply-v0.5.8.mjs && node scripts/apply-v0.5.9-backend.mjs && node scripts/apply-v0.5.9.mjs && node scripts/apply-v0.5.10.mjs && vite build",
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
     "preview": "vite preview --host 0.0.0.0"
   },
   "devDependencies": {
