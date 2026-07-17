@@ -40,7 +40,7 @@ function filteredUsers() {
   const keyword = query.trim().toLowerCase();
   if (!keyword) return users;
   return users.filter((user) => {
-    const accessText = Object.entries(user.appAccess || {}).map(([appId, entry]) => `${appId} ${entry.role || ''} ${entry.status || ''}`).join(' ');
+    const accessText = Object.entries(user.appAccess || {}).map(([appId, entry]) => `${appId} ${(entry.roles || [entry.role]).filter(Boolean).join(' ')} ${entry.status || ''}`).join(' ');
     return [user.username, user.displayName, user.portalRole, user.status, accessText]
       .some((value) => String(value || '').toLowerCase().includes(keyword));
   });
@@ -56,7 +56,7 @@ function accessBadges(user) {
     ? '<span class="rounded-full bg-blue-100 px-2.5 py-1 text-[11px] font-black text-blue-700" title="Akses ke semua aplikasi">*</span>'
     : `<span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600">${entries.length}/${totalApps} APP</span>`;
   const badges = entries.map(([appId, item]) => {
-    const label = item.role || 'ROLE KOSONG';
+    const label = (item.roles || [item.role]).filter(Boolean).join(', ') || 'ROLE KOSONG';
     const status = String(item.status || 'ACTIVE').toUpperCase();
     const tone = !item.role ? 'bg-amber-50 text-amber-700' : status === 'ACTIVE' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-500';
     return `<span class="rounded-full px-2.5 py-1 text-[11px] font-bold ${tone}">${escapeHtml(appId)} · ${escapeHtml(label)}${status === 'INACTIVE' ? ' · INACTIVE' : ''}</span>`;
@@ -82,23 +82,22 @@ function render() {
   bind();
 }
 
-function roleOptions(appId, currentRole) {
-  const normalizedCurrent = String(currentRole || '').trim().toUpperCase();
-  const roles = [...new Set([...(appRoleMaster[appId] || []), 'ADMIN', 'USER'].map((role) => String(role || '').trim().toUpperCase()).filter(Boolean))]
-    .sort((left, right) => ({ ADMIN: 0, USER: 1 }[left] ?? 10) - ({ ADMIN: 0, USER: 1 }[right] ?? 10) || left.localeCompare(right));
-  return `<option value="">Belum terdaftar</option>${roles.map((role) => `<option value="${escapeHtml(role)}" ${normalizedCurrent === role ? 'selected' : ''}>${escapeHtml(role)}</option>`).join('')}`;
+function roleList(appId) {
+  return [...new Set([...(appRoleMaster[appId] || []), 'ADMIN', 'USER'].map((role) => String(role || '').trim().toUpperCase()).filter(Boolean))]
+    .sort((a, b) => ({ ADMIN: 0, USER: 1 }[a] ?? 10) - ({ ADMIN: 0, USER: 1 }[b] ?? 10) || a.localeCompare(b));
 }
 
-function appAccessFields(user = {}) {
+function roleCheckboxDropdown(appId, currentRoles = [], enabled = true) {
+  const selected = new Set((Array.isArray(currentRoles) ? currentRoles : [currentRoles]).map((role) => String(role || '').trim().toUpperCase()).filter(Boolean));
+  const roles = roleList(appId);
+  return `<details class="relative" data-role-dropdown="${escapeHtml(appId)}"><summary class="mt-1 flex min-h-11 cursor-pointer list-none items-center justify-between rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-normal text-slate-800 ${enabled ? '' : 'pointer-events-none opacity-45'}"><span data-role-summary>${escapeHtml([...selected].join(', ') || 'Belum terdaftar')}</span><span>⌄</span></summary><div class="absolute z-20 mt-2 max-h-56 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl">${roles.map((role) => `<label class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-sm hover:bg-slate-50"><input type="checkbox" name="roles:${escapeHtml(appId)}" value="${escapeHtml(role)}" ${selected.has(role) ? 'checked' : ''} ${enabled ? '' : 'disabled'}><span>${escapeHtml(role)}</span></label>`).join('')}</div></details>`;
+}
+
+function appAccessFields(user) {
   return registeredApps().map((app) => {
-    const current = user.appAccess?.[app.appId] || { access: false, status: 'ACTIVE', role: '' };
-    return `<fieldset data-app-access-card="${escapeHtml(app.appId)}" class="rounded-2xl border border-slate-200 p-4 transition ${current.access ? 'bg-white' : 'bg-slate-50'}">
-      <label class="flex cursor-pointer items-start gap-3"><input data-app-access-checkbox="${escapeHtml(app.appId)}" name="access:${escapeHtml(app.appId)}" type="checkbox" ${current.access ? 'checked' : ''} class="mt-1 size-4"><span class="min-w-0"><strong class="block truncate text-sm text-slate-900">${escapeHtml(app.appName || app.appId)}</strong><span class="text-xs text-slate-500">${escapeHtml(app.appId)}</span></span></label>
-      <div data-app-access-controls="${escapeHtml(app.appId)}" class="mt-3 grid gap-3 sm:grid-cols-2 ${current.access ? '' : 'opacity-45'}">
-        <label class="text-xs font-bold uppercase tracking-wide text-slate-500">Role<select name="role:${escapeHtml(app.appId)}" ${current.access ? '' : 'disabled'} class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-normal text-slate-800">${roleOptions(app.appId, current.role)}</select></label>
-        <label class="text-xs font-bold uppercase tracking-wide text-slate-500">Status<select name="appStatus:${escapeHtml(app.appId)}" ${current.access ? '' : 'disabled'} class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-normal text-slate-800"><option value="ACTIVE" ${current.status !== 'INACTIVE' ? 'selected' : ''}>ACTIVE</option><option value="INACTIVE" ${current.status === 'INACTIVE' ? 'selected' : ''}>INACTIVE</option></select></label>
-      </div>
-    </fieldset>`;
+    const current = user.appAccess?.[app.appId] || { access: false, status: 'ACTIVE', role: '', roles: [] };
+    const currentRoles = current.roles || (current.role ? [current.role] : []);
+    return `<article data-app-access-card="${escapeHtml(app.appId)}" class="rounded-2xl border border-slate-200 p-4 ${current.access ? 'bg-white' : 'bg-slate-50'}"><label class="flex items-center gap-3"><input data-app-access-checkbox="${escapeHtml(app.appId)}" name="access:${escapeHtml(app.appId)}" type="checkbox" ${current.access ? 'checked' : ''}><span class="font-bold text-slate-900">${escapeHtml(app.appName)}</span></label><div data-app-access-controls="${escapeHtml(app.appId)}" class="mt-3 grid gap-3 sm:grid-cols-2 ${current.access ? '' : 'opacity-45'}"><label class="text-xs font-bold uppercase tracking-wide text-slate-500">Role (bisa lebih dari satu)${roleCheckboxDropdown(app.appId, currentRoles, current.access)}</label><label class="text-xs font-bold uppercase tracking-wide text-slate-500">Status<select name="appStatus:${escapeHtml(app.appId)}" ${current.access ? '' : 'disabled'} class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-normal text-slate-800"><option value="ACTIVE" ${current.status !== 'INACTIVE' ? 'selected' : ''}>ACTIVE</option><option value="INACTIVE" ${current.status === 'INACTIVE' ? 'selected' : ''}>INACTIVE</option></select></label></div></article>`;
   }).join('');
 }
 
@@ -111,7 +110,8 @@ function setAppCardEnabled(host, checkbox) {
   const controls = host.querySelector(`[data-app-access-controls="${CSS.escape(appId)}"]`);
   const card = host.querySelector(`[data-app-access-card="${CSS.escape(appId)}"]`);
   controls?.classList.toggle('opacity-45', !checkbox.checked);
-  controls?.querySelectorAll('select').forEach((select) => { select.disabled = !checkbox.checked; });
+  controls?.querySelectorAll('select, input[type=checkbox]').forEach((control) => { control.disabled = !checkbox.checked; });
+  controls?.querySelector('details')?.classList.toggle('pointer-events-none', !checkbox.checked);
   card?.classList.toggle('bg-slate-50', !checkbox.checked);
   card?.classList.toggle('bg-white', checkbox.checked);
 }
@@ -124,6 +124,7 @@ function openDialog(title, body) {
   host.addEventListener('click', (event) => { if (event.target === host) host.remove(); });
   host.querySelector('[data-form-cancel]')?.addEventListener('click', () => host.remove());
   host.querySelectorAll('[data-app-access-checkbox]').forEach((checkbox) => checkbox.addEventListener('change', () => setAppCardEnabled(host, checkbox)));
+  host.querySelectorAll('[data-role-dropdown]').forEach((details) => details.addEventListener('change', () => { const roles = [...details.querySelectorAll('input:checked')].map((input) => input.value); const summary = details.querySelector('[data-role-summary]'); if (summary) summary.textContent = roles.join(', ') || 'Belum terdaftar'; }));
   host.querySelector('[data-select-all-apps]')?.addEventListener('click', () => host.querySelectorAll('[data-app-access-checkbox]').forEach((checkbox) => { checkbox.checked = true; setAppCardEnabled(host, checkbox); }));
   host.querySelector('[data-clear-all-apps]')?.addEventListener('click', () => host.querySelectorAll('[data-app-access-checkbox]').forEach((checkbox) => { checkbox.checked = false; setAppCardEnabled(host, checkbox); }));
   return host;
@@ -139,7 +140,7 @@ async function openUserForm(user = null) {
     const appAccess = {};
     registeredApps().forEach((app) => {
       if (!formData.has(`access:${app.appId}`)) return;
-      appAccess[app.appId] = { access: true, status: String(formData.get(`appStatus:${app.appId}`) || 'ACTIVE').trim().toUpperCase(), role: String(formData.get(`role:${app.appId}`) || '').trim().toUpperCase() };
+      appAccess[app.appId] = { access: true, status: String(formData.get(`appStatus:${app.appId}`) || 'ACTIVE').trim().toUpperCase(), roles: formData.getAll(`roles:${app.appId}`).map((role) => String(role || '').trim().toUpperCase()).filter(Boolean) };
     });
     const values = { displayName: formData.get('displayName'), portalRole: String(formData.get('portalRole') || 'USER').toUpperCase(), status: String(formData.get('status') || 'ACTIVE').toUpperCase(), appAccess };
     try {

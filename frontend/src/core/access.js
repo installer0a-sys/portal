@@ -41,10 +41,15 @@ export function getAppAccess(session, appId) {
     }
     if (fallbackRole) break;
   }
+  const roles = Array.isArray(entry?.roles)
+    ? entry.roles.map(normalizeRole).filter(Boolean)
+    : Array.isArray(fallbackRole) ? fallbackRole.map(normalizeRole).filter(Boolean)
+      : [normalizeRole(entry?.role || entry?.ROLE || entry?.appRole || fallbackRole)].filter(Boolean);
   return {
-    access: entry ? entry.access !== false && String(entry.access ?? 'true').toUpperCase() !== 'FALSE' : Boolean(fallbackRole),
+    access: entry ? entry.access !== false && String(entry.access ?? 'true').toUpperCase() !== 'FALSE' : roles.length > 0,
     status: normalizeRole(entry?.status || 'ACTIVE') || 'ACTIVE',
-    role: normalizeRole(entry?.role || entry?.ROLE || entry?.appRole || fallbackRole)
+    role: roles[0] || '',
+    roles: [...new Set(roles)]
   };
 }
 

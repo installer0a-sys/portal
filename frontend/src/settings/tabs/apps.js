@@ -69,7 +69,7 @@ function render() {
                 <p class="mt-1 line-clamp-2 text-sm text-slate-500">${escapeHtml(app.description || 'Belum ada deskripsi.')}</p>
                 <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
                   <span>Kategori: ${escapeHtml(app.category || '-')}</span>
-                  <span>Config: ${escapeHtml(app.configSheet || 'CONFIG_WEB')}</span>
+                  <span>Route: /${escapeHtml(app.routeSlug || app.appId)}</span><span>Config: ${escapeHtml(app.configSheet || 'CONFIG_WEB')}</span>
                   <span>Sync: ${escapeHtml(formatDate(app.configSyncedAt))}</span>
                 </div>
               </div>
@@ -99,7 +99,7 @@ function formTemplate(app = {}) {
         <label class="text-sm font-semibold text-slate-700 sm:col-span-2">Deskripsi<textarea name="description" rows="3" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-blue-500">${escapeHtml(app.description || '')}</textarea></label>
         <label class="text-sm font-semibold text-slate-700 sm:col-span-2">Spreadsheet ID<input name="spreadsheetId" value="${escapeHtml(app.spreadsheetId || '')}" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-mono text-xs font-normal outline-none focus:border-blue-500"></label>
         <label class="text-sm font-semibold text-slate-700">Sheet config<input name="configSheet" value="${escapeHtml(app.configSheet || 'CONFIG_WEB')}" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-blue-500"></label>
-        <label class="text-sm font-semibold text-slate-700">Kategori<input name="category" value="${escapeHtml(app.category || '')}" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-blue-500"></label>
+        <label class="text-sm font-semibold text-slate-700">Route / slug<input name="routeSlug" value="${escapeHtml(app.routeSlug || app.appId || '')}" required class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-slate-500"></label><label class="text-sm font-semibold text-slate-700">Kategori<input name="category" value="${escapeHtml(app.category || '')}" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-blue-500"></label>
         <label class="text-sm font-semibold text-slate-700 sm:col-span-2">URL web mandiri<input name="standaloneUrl" value="${escapeHtml(app.standaloneUrl || '')}" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-blue-500"></label>
         <label class="text-sm font-semibold text-slate-700">Cache TTL (detik)<input name="cacheTtlSeconds" type="number" min="10" max="21600" value="${Number(app.cacheTtlSeconds || 900)}" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-blue-500"></label>
         <label class="text-sm font-semibold text-slate-700">Status<select name="status" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-blue-500"><option value="ACTIVE" ${app.status !== 'INACTIVE' ? 'selected' : ''}>ACTIVE</option><option value="INACTIVE" ${app.status === 'INACTIVE' ? 'selected' : ''}>INACTIVE</option></select></label>

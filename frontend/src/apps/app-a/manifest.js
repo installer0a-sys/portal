@@ -1,95 +1,32 @@
 export const appAManifest = {
   schemaVersion: '1.0',
   id: 'appA',
-  title: 'App A',
-  shortTitle: 'App A',
-  description:
-    'Aplikasi pertama Portal V3.',
-  icon: 'app',
-  category: 'Operasional',
-  version: '0.4.6',
-  route: 'appA',
+  title: 'Jadwal A542',
+  shortTitle: 'Jadwal A542',
+  description: 'Pembuatan dan pemantauan jadwal karyawan Azko Kudus Sudirman.',
+  icon: 'calendar',
+  category: '',
+  version: '0.5.4',
+  route: 'jadwal-a542',
   order: 20,
   menu: true,
   enabled: true,
-  requiredPermission:
-    'appA.access',
-  tags: [
-    'operasional',
-    'app-a'
-  ],
-  standalone: {
-    enabled: true,
-    path: '/portal/app-a/',
-    manifestPath:
-      '/portal/manifests/app-a.webmanifest',
-    installable: true
-  },
-  capabilities: {
-    offline: false,
-    cache: true,
-    notifications: false,
-    backgroundSync: false
-  },
-
-  /*
-   * Metadata menu internal ini belum mengubah tampilan.
-   * Akan dipakai saat App Shell UI dibuat nanti.
-   */
+  requiredPermission: 'appA.access',
+  tags: ['jadwal', 'karyawan', 'roster', 'workschedule'],
+  standalone: { enabled: false, path: '', manifestPath: '', installable: false },
+  capabilities: { offline: false, cache: true, notifications: false, backgroundSync: false },
   internalMenu: [
-    {
-      id: 'overview',
-      title: 'Ringkasan',
-      icon: 'home',
-      route: 'overview',
-      order: 10,
-      default: true,
-      enabled: true,
-      requiredPermission:
-        'appA.access'
-    },
-    {
-      id: 'schedule',
-      title: 'Jadwal',
-      icon: 'calendar',
-      route: 'schedule',
-      order: 20,
-      enabled: true,
-      requiredPermission:
-        'appA.schedule.view'
-    },
-    {
-      id: 'manager',
-      title: 'Manager',
-      icon: 'users',
-      route: 'manager',
-      order: 30,
-      enabled: true,
-      requiredPermission:
-        'appA.manager.view'
-    },
-    {
-      id: 'report',
-      title: 'Laporan',
-      icon: 'report',
-      route: 'report',
-      order: 40,
-      enabled: true,
-      requiredPermission:
-        'appA.report.view'
-    },
-    {
-      id: 'settings',
-      title: 'Pengaturan',
-      icon: 'settings',
-      route: 'settings',
-      order: 50,
-      enabled: true,
-      requiredPermission:
-        'appA.settings.view'
-    }
+    { id: 'dashboard', title: 'Dashboard', icon: 'home', route: 'dashboard', order: 10, default: true, enabled: true, requiredPermission: 'appA.access' },
+    { id: 'jadwal-all', title: 'Jadwal All', icon: 'calendar', route: 'jadwal-all', order: 20, enabled: true, requiredPermission: 'appA.access' },
+    { id: 'jadwal-spv', title: 'Jadwal SPV', icon: 'users', route: 'jadwal-spv', order: 30, enabled: true, requiredPermission: 'appA.access' },
+    { id: 'dop-dos', title: 'DOP DOS', icon: 'report', route: 'dop-dos', order: 40, enabled: true, requiredPermission: 'appA.access' },
+    { id: 'jadwal-lama', title: 'Jadwal Lama', icon: 'calendar', route: 'jadwal-lama', order: 50, enabled: true, requiredPermission: 'appA.access' },
+    { id: 'admin-jadwal', title: 'Pengaturan Jadwal', icon: 'settings', route: 'admin-jadwal', order: 110, enabled: true, adminOnly: true, requiredPermission: 'appA.access' },
+    { id: 'admin-karyawan', title: 'Data Karyawan', icon: 'users', route: 'admin-karyawan', order: 120, enabled: true, adminOnly: true, requiredPermission: 'appA.access' },
+    { id: 'admin-roster', title: 'Pengaturan Roster', icon: 'settings', route: 'admin-roster', order: 130, enabled: true, adminOnly: true, requiredPermission: 'appA.access' },
+    { id: 'admin-libur', title: 'Data Libur', icon: 'calendar', route: 'admin-libur', order: 140, enabled: true, adminOnly: true, requiredPermission: 'appA.access' },
+    { id: 'admin-generate', title: 'Generate Jadwal', icon: 'settings', route: 'admin-generate', order: 150, enabled: true, adminOnly: true, requiredPermission: 'appA.access' },
+    { id: 'admin-download', title: 'Download Workschedule', icon: 'report', route: 'admin-download', order: 160, enabled: true, adminOnly: true, requiredPermission: 'appA.access' }
   ],
-
-  loader: () =>
-    import('./index.js')
+  loader: () => import('./index.js')
 };

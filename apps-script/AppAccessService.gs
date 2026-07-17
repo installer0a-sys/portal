@@ -79,7 +79,6 @@ function getManagedUserAppAccessMap_() {
   const result = {};
   const accessSheet = getPortalSpreadsheet_().getSheetByName('USER_APP_ACCESS');
   const roleSheet = getPortalSpreadsheet_().getSheetByName('USER_APP_ROLE');
-
   if (accessSheet && accessSheet.getLastRow() >= 2) {
     const headers = getSheetHeaders_(accessSheet);
     accessSheet.getRange(2, 1, accessSheet.getLastRow() - 1, headers.length).getValues().forEach(function(row) {
@@ -88,14 +87,9 @@ function getManagedUserAppAccessMap_() {
       const appId = String(item.APP_ID || '');
       if (!userId || !appId || String(item.ACCESS || '').toUpperCase() !== 'TRUE') return;
       if (!result[userId]) result[userId] = {};
-      result[userId][appId] = {
-        access: true,
-        status: normalizeAppAccessStatus_(item.STATUS || 'ACTIVE'),
-        role: ''
-      };
+      result[userId][appId] = { access: true, status: normalizeAppAccessStatus_(item.STATUS || 'ACTIVE'), role: '', roles: [] };
     });
   }
-
   if (roleSheet && roleSheet.getLastRow() >= 2) {
     const headers = getSheetHeaders_(roleSheet);
     roleSheet.getRange(2, 1, roleSheet.getLastRow() - 1, headers.length).getValues().forEach(function(row) {
@@ -103,9 +97,16 @@ function getManagedUserAppAccessMap_() {
       const userId = String(item.USER_ID || '');
       const appId = String(item.APP_ID || '');
       if (!result[userId] || !result[userId][appId]) return;
-      result[userId][appId].role = normalizeAppRole_(item.ROLE);
+      const role = normalizeAppRole_(item.ROLE);
+      if (role && result[userId][appId].roles.indexOf(role) < 0) result[userId][appId].roles.push(role);
     });
   }
+  Object.keys(result).forEach(function(userId) {
+    Object.keys(result[userId]).forEach(function(appId) {
+      result[userId][appId].roles.sort();
+      result[userId][appId].role = result[userId][appId].roles[0] || '';
+    });
+  });
   return result;
 }
 
@@ -113,33 +114,21 @@ function replaceManagedUserAppAccess_(userId, appAccess) {
   const accessSheet = getPortalSpreadsheet_().getSheetByName('USER_APP_ACCESS');
   const roleSheet = getPortalSpreadsheet_().getSheetByName('USER_APP_ROLE');
   if (!accessSheet || !roleSheet) throw new Error('Sheet akses aplikasi belum tersedia. Jalankan setupPortalSheets().');
-
   const incoming = appAccess || {};
   const registeredApps = getRegisteredAppIdMap_();
   const accessRecords = [];
   const roleRecords = [];
   const now = new Date();
-
   Object.keys(incoming).forEach(function(appId) {
     const entry = incoming[appId] || {};
     if (entry.access !== true) return;
-    if (!registeredApps[appId]) {
-      const error = new Error('Aplikasi ' + appId + ' tidak terdaftar atau sudah dihapus.');
-      error.code = 'VALIDATION_ERROR';
-      error.field = 'appAccess';
-      throw error;
-    }
+    if (!registeredApps[appId]) throw Object.assign(new Error('Aplikasi ' + appId + ' tidak terdaftar atau sudah dihapus.'), { code: 'VALIDATION_ERROR', field: 'appAccess' });
     const status = normalizeAppAccessStatus_(entry.status || 'ACTIVE');
-    const role = validateRoleForApp_(appId, entry.role);
-    accessRecords.push({
-      USER_ID: userId, APP_ID: appId, ACCESS: true, STATUS: status, CREATED_AT: now, UPDATED_AT: now
-    });
-    if (role) {
-      roleRecords.push({ USER_ID: userId, APP_ID: appId, ROLE: role, CREATED_AT: now, UPDATED_AT: now });
-    }
+    let roles = Array.isArray(entry.roles) ? entry.roles : (entry.role ? [entry.role] : []);
+    roles = roles.map(function(role) { return validateRoleForApp_(appId, role); }).filter(Boolean).filter(function(role, index, all) { return all.indexOf(role) === index; });
+    accessRecords.push({ USER_ID: userId, APP_ID: appId, ACCESS: true, STATUS: status, CREATED_AT: now, UPDATED_AT: now });
+    roles.forEach(function(role) { roleRecords.push({ USER_ID: userId, APP_ID: appId, ROLE: role, CREATED_AT: now, UPDATED_AT: now }); });
   });
-
-  // Seluruh payload divalidasi sebelum sheet ditulis agar tidak terjadi data setengah tersimpan.
   rewriteUserScopedRows_(accessSheet, userId, accessRecords);
   rewriteUserScopedRows_(roleSheet, userId, roleRecords);
 }

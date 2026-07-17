@@ -10,7 +10,7 @@ function setupPortalSheets_() {
     ['APP_ROLE_PERMISSION_MASTER', ['PERMISSION_KEY','APP_ID','ROLE','PERMISSION','DESCRIPTION','STATUS','SOURCE_HASH','SYNC_AT']],
     ['ROLE_PERMISSIONS', ['APP_ID','ROLE','PERMISSION','DESCRIPTION']],
     ['SESSIONS', ['SESSION_ID','USER_ID','TOKEN_HASH','EXPIRES_AT','STATUS','CREATED_AT','LAST_SEEN_AT','SESSION_VERSION']],
-    ['APPS', ['APP_ID','APP_NAME','DESCRIPTION','SPREADSHEET_ID','CONFIG_SHEET','STANDALONE_URL','ICON','CATEGORY','STATUS','ENABLED','DIRECT_PWA','SORT_ORDER','CACHE_TTL_SECONDS','CONFIG_VERSION','CONFIG_HASH','CONFIG_SYNCED_AT','CREATED_AT','UPDATED_AT','DELETED_AT']],
+    ['APPS', ['APP_ID','APP_NAME','DESCRIPTION','SPREADSHEET_ID','CONFIG_SHEET','ROUTE_SLUG','STANDALONE_URL','ICON','CATEGORY','STATUS','ENABLED','DIRECT_PWA','SORT_ORDER','CACHE_TTL_SECONDS','CONFIG_VERSION','CONFIG_HASH','CONFIG_SYNCED_AT','CREATED_AT','UPDATED_AT','DELETED_AT']],
     ['APP_CONFIG_CACHE', ['APP_ID','CONFIG_VERSION','CONFIG_JSON','CONFIG_HASH','CACHED_AT','SOURCE_SPREADSHEET_ID','SOURCE_SHEET']],
     ['AUDIT_LOG', ['TIMESTAMP','REQUEST_ID','USER_ID','ACTION','STATUS','DURATION_MS','DETAILS']],
     ['SYSTEM_LOG', ['TIMESTAMP','LEVEL','SOURCE','MESSAGE','REQUEST_ID','DETAILS']]
@@ -28,6 +28,7 @@ function setupPortalSheets_() {
   seedApps_(ss);
   seedPermissions_(ss);
   seedDefaultAppRoles_(ss);
+  seedAppAFoundationRoles_(ss);
   seedLegacyAppRoles_(ss);
   syncAppRoleMasterFromCache_(ss);
   syncAppRolePermissionsFromCache_(ss);
@@ -82,8 +83,8 @@ function seedConfig_(ss) {
 
 function seedApps_(ss) {
   upsertRowsByKey_(ss.getSheetByName('APPS'), 'APP_ID', [
-    { APP_ID: 'portal', APP_NAME: 'Portal Utama', DESCRIPTION: 'Shell utama portal', CONFIG_SHEET: 'CONFIG_WEB', STATUS: 'ACTIVE', ENABLED: true, DIRECT_PWA: true, SORT_ORDER: 1, CACHE_TTL_SECONDS: 900 },
-    { APP_ID: 'appA', APP_NAME: 'App A', DESCRIPTION: 'Aplikasi A', CONFIG_SHEET: 'CONFIG_WEB', STATUS: 'ACTIVE', ENABLED: true, DIRECT_PWA: true, SORT_ORDER: 10, CACHE_TTL_SECONDS: 900 },
+    { APP_ID: 'portal', APP_NAME: 'Portal Utama', DESCRIPTION: 'Shell utama portal', CONFIG_SHEET: 'CONFIG_WEB', ROUTE_SLUG: 'dashboard', STATUS: 'ACTIVE', ENABLED: true, DIRECT_PWA: true, SORT_ORDER: 1, CACHE_TTL_SECONDS: 900 },
+    { APP_ID: 'appA', APP_NAME: 'Jadwal A542', DESCRIPTION: 'Pembuatan jadwal karyawan Azko Kudus Sudirman', SPREADSHEET_ID: '1XF4dJfGiUZI8WEV5iTwdqHABfjSmONgcT-b0KCqryHs', CONFIG_SHEET: 'CONFIG_WEB', ROUTE_SLUG: 'jadwal-a542', STATUS: 'ACTIVE', ENABLED: true, DIRECT_PWA: true, SORT_ORDER: 10, CACHE_TTL_SECONDS: 900 },
     { APP_ID: 'appB', APP_NAME: 'App B', DESCRIPTION: 'Aplikasi B', CONFIG_SHEET: 'CONFIG_WEB', STATUS: 'ACTIVE', ENABLED: true, DIRECT_PWA: false, SORT_ORDER: 20, CACHE_TTL_SECONDS: 900 },
     { APP_ID: 'appC', APP_NAME: 'App C', DESCRIPTION: 'Aplikasi C', CONFIG_SHEET: 'CONFIG_WEB', STATUS: 'ACTIVE', ENABLED: true, DIRECT_PWA: false, SORT_ORDER: 30, CACHE_TTL_SECONDS: 900 },
     { APP_ID: 'appD', APP_NAME: 'App D', DESCRIPTION: 'Aplikasi D', CONFIG_SHEET: 'CONFIG_WEB', STATUS: 'ACTIVE', ENABLED: true, DIRECT_PWA: false, SORT_ORDER: 40, CACHE_TTL_SECONDS: 900 },
@@ -200,4 +201,16 @@ function createInitialAdmin() {
   properties.deleteProperty('INITIAL_ADMIN_USERNAME');
 
   return success_({ user: user }, 'Admin pertama berhasil dibuat. Properti password telah dihapus.');
+}
+
+
+function seedAppAFoundationRoles_(ss) {
+  const sheet = ss.getSheetByName('APP_ROLE_MASTER');
+  if (!sheet) return;
+  const now = new Date();
+  const roles = ['ADMIN','USER','SPV','PS','PIC ZONA','TEAM ANALIST','TEAM MARKETING','ADVISOR','SUPPORT'];
+  const records = roles.map(function(role) {
+    return { ROLE_KEY: 'appA|' + role, APP_ID: 'appA', ROLE: role, DESCRIPTION: role === 'USER' ? 'Akses baca saja' : role === 'ADMIN' ? 'Akses penuh aplikasi' : 'Akses edit terbatas mengikuti area kerja dan NIP', STATUS: 'ACTIVE', SOURCE_HASH: 'APP_A_FOUNDATION', SYNC_AT: now };
+  });
+  upsertRowsByKey_(sheet, 'ROLE_KEY', records, { preserveExisting: true });
 }

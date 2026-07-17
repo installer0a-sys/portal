@@ -176,3 +176,6 @@ html {
     overflow: visible;
   }
 }
+
+/* v0.5.4 Jadwal A542 table */
+.jadwal-sticky-head,.jadwal-sticky-cell{position:sticky;z-index:12}.jadwal-sticky-head{z-index:25}.jadwal-col-1{left:0;min-width:48px}.jadwal-col-2{left:48px;min-width:78px}.jadwal-col-3{left:126px;min-width:170px}.jadwal-col-4{left:296px;min-width:140px;box-shadow:4px 0 8px -6px rgba(15,23,42,.35)}

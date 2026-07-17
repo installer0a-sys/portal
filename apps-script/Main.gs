@@ -1,4 +1,4 @@
-const PORTAL_VERSION = '0.5.3';
+const PORTAL_VERSION = '0.5.4';
 
 function doGet() {
   return jsonOutput_(success_({ service: 'Portal Azko Kudus Sudirman API', version: PORTAL_VERSION }, 'API aktif.'));

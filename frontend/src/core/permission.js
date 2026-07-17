@@ -14,11 +14,11 @@ export const permissionEngine = {
     const access = getAppAccess(session, appId);
     if (!access.access) return { allowed: false, visible: false, reason: 'NO_ACCESS', ...access };
     if (access.status !== 'ACTIVE') return { allowed: false, visible: true, reason: 'INACTIVE', ...access };
-    if (!access.role || access.role === 'NONE') return { allowed: false, visible: true, reason: 'NO_ROLE', ...access };
+    if (!(access.roles || []).length && (!access.role || access.role === 'NONE')) return { allowed: false, visible: true, reason: 'NO_ROLE', ...access };
     return { allowed: true, visible: true, reason: '', ...access };
   },
-  isReadOnly(session, appId) { return getAppAccess(session, appId).role === 'USER'; },
-  isAppAdmin(session, appId) { return getAppAccess(session, appId).role === 'ADMIN'; },
+  isReadOnly(session, appId) { const access = getAppAccess(session, appId); return access.roles.length === 1 && access.roles.includes('USER'); },
+  isAppAdmin(session, appId) { return getAppAccess(session, appId).roles.includes('ADMIN'); },
   can(session, permission) {
     const required = normalize(permission);
     if (!required) return true;
@@ -30,8 +30,8 @@ export const permissionEngine = {
       const gate = this.getAppGate(session, appId);
       if (!gate.allowed) return false;
       if (required === `${appId}.access`) return true;
-      if (gate.role === 'ADMIN') return true;
-      if (gate.role === 'USER' && /\.(view|read|filter|search|chart|export)$/.test(required)) return true;
+      if ((gate.roles || []).includes('ADMIN')) return true;
+      if ((gate.roles || []).includes('USER') && /\.(view|read|filter|search|chart|export)$/.test(required)) return true;
     }
     const allowed = getPermissions(session).some((item) => permissionMatches(item, required));
     logger.info('Permission evaluated', { permission: required, allowed });

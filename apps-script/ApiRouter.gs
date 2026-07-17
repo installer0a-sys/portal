@@ -17,6 +17,16 @@ function routeApi_(request) {
     case 'auth.logout':
       return logout_(sessionToken, requestId);
 
+    case 'appA.dashboard': {
+      const context = validateSession_(sessionToken);
+      return appADashboard_(context, payload);
+    }
+
+    case 'appA.schedule.list': {
+      const context = validateSession_(sessionToken);
+      return appAScheduleList_(context, payload);
+    }
+
     case 'appA.ping': {
       const context = validateSession_(sessionToken);
       requirePermission_(context, 'appA.access');
