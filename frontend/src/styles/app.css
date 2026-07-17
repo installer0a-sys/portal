@@ -46,3 +46,33 @@
     scrollbar-width: thin;
   }
 }
+
+@layer components {
+  .portal-login-bg {
+    background-color: #15191f;
+    background-image:
+      linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+      radial-gradient(circle at 20% 35%, rgba(37,99,235,.12), transparent 28%),
+      radial-gradient(circle at 82% 72%, rgba(15,23,42,.8), transparent 35%);
+    background-size: 42px 42px, 42px 42px, auto, auto;
+  }
+  .portal-shell-transition { animation: portalFade .16s ease-out; }
+  .app-sidebar { width: 272px; transition: width .2s ease, transform .2s ease; }
+  .app-sidebar.is-collapsed { width: 76px; }
+  .app-sidebar.is-collapsed .sidebar-label,
+  .app-sidebar.is-collapsed .sidebar-brand-text,
+  .app-sidebar.is-collapsed .sidebar-section-label { display: none; }
+  .app-sidebar.is-collapsed .sidebar-link { justify-content: center; padding-left: .75rem; padding-right: .75rem; }
+  .app-sidebar.is-collapsed .sidebar-link:hover::after {
+    content: attr(data-tooltip); position: fixed; margin-left: 8rem; z-index: 80;
+    border-radius: .65rem; background: #0f172a; color: white; padding: .45rem .7rem;
+    font-size: .75rem; white-space: nowrap; box-shadow: 0 10px 30px rgba(15,23,42,.22);
+  }
+}
+@keyframes portalFade { from { opacity: .25; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@media (max-width: 1023px) {
+  .app-sidebar { width: 272px !important; transform: translateX(-100%); }
+  .app-sidebar.is-mobile-open { transform: translateX(0); }
+  .app-sidebar .sidebar-label, .app-sidebar .sidebar-brand-text, .app-sidebar .sidebar-section-label { display: initial !important; }
+}
