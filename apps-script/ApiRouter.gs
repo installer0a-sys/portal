@@ -26,9 +26,13 @@ function routeApi_(request) {
       const context = validateSession_(sessionToken);
       return appAScheduleEditorGet_(context, payload);
     }
+    case 'appA.schedule.editor.validate': {
+      const context = validateSession_(sessionToken);
+      return appAScheduleEditorValidate_(context, payload);
+    }
     case 'appA.schedule.editor.save': {
       const context = validateSession_(sessionToken);
-      return appAScheduleEditorSave_(context, payload, requestId);
+      return appAScheduleEditorSaveV059_(context, payload, requestId);
     }
     case 'appA.config.get': {
       const context = validateSession_(sessionToken);

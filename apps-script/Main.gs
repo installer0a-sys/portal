@@ -1,4 +1,4 @@
-const PORTAL_VERSION = '0.5.8';
+const PORTAL_VERSION = '0.5.9';
 
 function doGet() {
   return jsonOutput_(success_({ service: 'Portal Azko Kudus Sudirman API', version: PORTAL_VERSION }, 'API aktif.'));
@@ -7,7 +7,6 @@ function doGet() {
 function doPost(e) {
   const started = Date.now();
   let request = {};
-
   try {
     request = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     const result = routeApi_(request);
@@ -22,9 +21,7 @@ function doPost(e) {
     const safeMessage = code === 'SERVER_ERROR'
       ? 'Terjadi kesalahan pada server.'
       : String(error && error.message || 'Permintaan gagal.');
-
     writeSystemErrorSafe_(error, request);
-
     return jsonOutput_(failure_(code, safeMessage, {
       durationMs: Date.now() - started,
       version: PORTAL_VERSION,
