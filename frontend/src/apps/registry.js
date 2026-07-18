@@ -80,6 +80,79 @@ export const appRegistry = {
     return normalized;
   },
 
+  applyCatalog(records = []) {
+    if (!Array.isArray(records)) {
+      return [];
+    }
+
+    const updated = [];
+
+    records.forEach((record) => {
+      const appId = String(
+        record?.appId ||
+        record?.APP_ID ||
+        ''
+      ).trim();
+
+      const current = registry.get(appId);
+
+      if (!current) {
+        return;
+      }
+
+      const appName = String(
+        record?.appName ||
+        record?.APP_NAME ||
+        ''
+      ).trim();
+
+      const description = String(
+        record?.description ||
+        record?.DESCRIPTION ||
+        ''
+      ).trim();
+
+      const category = String(
+        record?.category ||
+        record?.CATEGORY ||
+        ''
+      ).trim();
+
+      const status = String(
+        record?.status ||
+        record?.STATUS ||
+        'ACTIVE'
+      ).trim().toUpperCase();
+
+      const sortOrder = Number(
+        record?.sortOrder ??
+        record?.SORT_ORDER ??
+        current.order
+      );
+
+      const merged = {
+        ...current,
+        title: appName || current.title,
+        shortTitle: appName || current.shortTitle || current.title,
+        description: description || current.description,
+        category: category || current.category,
+        order: Number.isFinite(sortOrder)
+          ? sortOrder
+          : current.order,
+        enabled: status === 'ACTIVE',
+        catalog: {
+          ...(current.catalog || {}),
+          ...record
+        }
+      };
+
+      registry.set(appId, merged);
+      updated.push(merged);
+    });
+
+    return updated;
+  },
+
   get(id) {
     return registry.get(
       String(id || '')

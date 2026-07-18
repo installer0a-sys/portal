@@ -1,8 +1,8 @@
 {
   "app": "portal-v3",
-  "version": "0.7.0-reset",
-  "build": "2026.07.17.appa-reset",
-  "releasedAt": "2026-07-17T13:30:00.000Z",
+  "version": "0.7.1",
+  "build": "2026.07.18.registry-sync",
+  "releasedAt": "2026-07-18T09:45:00.000Z",
   "minimumSupportedVersion": "0.5.8",
-  "notes": "App A Jadwal A542 reset to empty menu-only skeleton"
+  "notes": "Silent session validation and APPS registry as display metadata source"
 }

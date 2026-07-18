@@ -8,6 +8,7 @@ let includeDeleted = false;
 let includeInactive = true;
 let abortController = null;
 const CACHE_KEY = 'portal.settings.apps.v2';
+const SHARED_CATALOG_CACHE_KEY = 'portal.appCatalog.v1';
 let memoryCache = null;
 let refreshPromise = null;
 function readCache() {
@@ -17,7 +18,21 @@ function readCache() {
 }
 function writeCache(value) {
   memoryCache = value;
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify(value)); } catch { /* cache optional */ }
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(value));
+    localStorage.setItem(
+      SHARED_CATALOG_CACHE_KEY,
+      JSON.stringify(value)
+    );
+  } catch {
+    // Cache is optional.
+  }
+}
+
+function publishRegistryChange() {
+  window.dispatchEvent(
+    new CustomEvent('portal:app-registry-changed')
+  );
 }
 
 
@@ -125,7 +140,8 @@ async function openForm(app = null) {
       else await callApi('apps.create', values);
       toast.success(app ? 'Aplikasi diperbarui.' : 'Aplikasi ditambahkan.');
       host.remove();
-      await load();
+      await load({ force: true });
+      publishRegistryChange();
     } catch (error) { toast.error(error.message); }
   });
 }
@@ -142,6 +158,7 @@ async function load({ background = false, force = false } = {}) {
       const result = await callApi('apps.list', { includeDeleted, includeInactive }, { deduplicate: false });
       apps = result.data?.apps || [];
       writeCache({ apps, savedAt: Date.now() });
+      publishRegistryChange();
       if (containerRef) render();
     } catch (error) {
       if (!hasVisibleData && containerRef) {
@@ -154,9 +171,15 @@ async function load({ background = false, force = false } = {}) {
   return refreshPromise;
 }
 
-async function action(action, payload, success) {
-  try { await callApi(action, payload, { deduplicate: false }); toast.success(success); await load(); }
-  catch (error) { toast.error(error.message); }
+async function action(actionName, payload, success) {
+  try {
+    await callApi(actionName, payload, { deduplicate: false });
+    toast.success(success);
+    await load({ force: true });
+    publishRegistryChange();
+  } catch (error) {
+    toast.error(error.message);
+  }
 }
 
 function bind() {

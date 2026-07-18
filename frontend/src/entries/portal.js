@@ -11,6 +11,7 @@ import { getPortalRole, getAppAccess } from '../core/access.js';
 import { permissionEngine } from '../core/permission.js';
 import { appRegistry } from '../apps/registry.js';
 import { portalAppManifests } from '../apps/manifests.js';
+import { callApi } from '../core/api.js';
 
 const root = document.querySelector('#app');
 const SIDEBAR_KEY = 'portal.sidebarCollapsed';
@@ -20,6 +21,71 @@ let shellAbortController = null;
 let currentManifest = null;
 let navigationSequence = 0;
 appRegistry.registerMany(portalAppManifests);
+
+const APP_CATALOG_CACHE_KEY = 'portal.appCatalog.v1';
+
+function readAppCatalogCache() {
+  try {
+    const value = JSON.parse(
+      localStorage.getItem(APP_CATALOG_CACHE_KEY) || 'null'
+    );
+    return Array.isArray(value?.apps)
+      ? value.apps
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeAppCatalogCache(apps) {
+  try {
+    localStorage.setItem(
+      APP_CATALOG_CACHE_KEY,
+      JSON.stringify({
+        apps,
+        savedAt: Date.now()
+      })
+    );
+  } catch {
+    // Cache is optional.
+  }
+}
+
+async function syncAppCatalog({ background = false } = {}) {
+  const cached = readAppCatalogCache();
+
+  if (cached.length) {
+    appRegistry.applyCatalog(cached);
+  }
+
+  try {
+    const result = await callApi(
+      'apps.list',
+      {
+        includeInactive: true,
+        includeDeleted: false
+      },
+      {
+        deduplicate: !background,
+        timeoutMs: background ? 15000 : 30000
+      }
+    );
+
+    const apps = result?.data?.apps || [];
+
+    if (apps.length) {
+      appRegistry.applyCatalog(apps);
+      writeAppCatalogCache(apps);
+    }
+
+    return apps;
+  } catch (error) {
+    logger.warn('App catalog sync failed; manifest fallback retained', {
+      message: error.message
+    });
+    return cached;
+  }
+}
 
 const icon = (name) => ({
   menu: '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>',
@@ -86,7 +152,7 @@ function renderAppShell(session, manifest) {
     <aside id="app-sidebar" class="app-sidebar ${collapsed ? 'is-collapsed' : ''} fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-200 bg-white p-4 lg:sticky lg:top-0 lg:h-screen">
       <div class="sidebar-brand-text border-b border-slate-200 pb-4"><p class="truncate text-base font-bold text-slate-900">${escapeHtml(manifest.title)}</p><p class="mt-1 truncate text-xs text-slate-500"><button data-go-launcher class="hover:text-slate-900">Portal</button> / ${escapeHtml(manifest.shortTitle || manifest.title)} / <span id="breadcrumb-page">Dashboard</span></p></div>
       <nav class="mt-4 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">${menu || `<button class="sidebar-link flex min-h-11 items-center gap-3 rounded-xl bg-brand-50 px-3 text-sm font-semibold text-brand-700">${icon('home')}<span class="sidebar-label">Dashboard</span></button>`}${adminMenu}</nav>
-      <p class="sidebar-section-label mt-4 text-center text-[11px] text-slate-400">Portal v0.7.0-reset | Design by Fredi</p>
+      <p class="sidebar-section-label mt-4 text-center text-[11px] text-slate-400">Portal v0.7.1 | Design by Fredi</p>
     </aside>
     <section class="app-workspace min-w-0 flex-1 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden">
       <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur"><div class="flex min-h-[72px] items-center gap-2 px-4 sm:px-6">
@@ -184,6 +250,13 @@ function bindShellEvents(navigate) {
   }, { signal }));
   window.addEventListener('keydown', (event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); if (!isLauncher(currentManifest)) navigate('dashboard', { historyMode: 'push' }).then(() => document.querySelector('#portal-app-search')?.focus()); else document.querySelector('#portal-app-search')?.focus(); } }, { signal });
   window.addEventListener('hashchange', () => { const route = getRouteFromHash(); if (store.getState().route !== route) navigate(route, { historyMode: 'none' }); }, { signal });
+
+  window.addEventListener('portal:app-registry-changed', async () => {
+    await syncAppCatalog({ background: true });
+    await navigate(store.getState().route || getRouteFromHash(), {
+      historyMode: 'none'
+    });
+  }, { signal });
 }
 
 async function showAuthenticatedPortal(session) {
@@ -193,9 +266,25 @@ async function showAuthenticatedPortal(session) {
 }
 function showLogin() { shellAbortController?.abort(); renderLoginView(root, { title: 'Login', subtitle: 'Masuk untuk mengakses Portal Web Azko Kudus Sudirman.', submitText: 'Masuk', onSuccess: showAuthenticatedPortal }); }
 async function startPortal() {
-  root.innerHTML = '<div class="portal-login-bg flex min-h-screen items-center justify-center p-4"><div class="rounded-2xl border border-white/10 bg-slate-800/90 p-6 text-center text-white shadow-xl"><p class="font-semibold">Portal Web</p><p class="mt-2 text-sm text-slate-300">Memeriksa sesi...</p></div></div>';
-  let session = null; try { session = await restoreSession(); } catch (error) { logger.warn('Portal session restore failed', { message: error.message }); }
-  if (!session || session.authenticated !== true) return showLogin();
+  // Keep session validation invisible. The login screen is shown only when
+  // the cached/server session is actually unavailable.
+  root.innerHTML = '<div class="portal-login-bg min-h-screen" aria-hidden="true"></div>';
+
+  let session = null;
+
+  try {
+    session = await restoreSession();
+  } catch (error) {
+    logger.warn('Portal session restore failed', {
+      message: error.message
+    });
+  }
+
+  if (!session || session.authenticated !== true) {
+    return showLogin();
+  }
+
+  await syncAppCatalog();
   await showAuthenticatedPortal(session);
 }
 async function startPwa() { try { const result = await registerPwa(); pwaRegistration = result?.registration || null; } catch (error) { logger.warn('PWA registration failed', { message: error.message }); } }
